@@ -124,6 +124,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define MAX_AXIS_MODES 4
 #define AXES_BOUND_COORDS 20
 #define COLOR_GRAY $8410
+#define COLOR_WHITE $ffff
+#define COLOR_BLACK $0000
 #define WINDOW_ID_OFFSET $80
 
 #define DEFAULT_XY_RES MAX_XY_RES
@@ -157,8 +159,11 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_AVOFF_MINY		13				;2 bytes
 #define SETTINGS_AVOFF_MAXX		15				;2 bytes
 #define SETTINGS_AVOFF_MAXY		17				;2 bytes
-#define SETTINGS_HOOKBACK_WIN	19				;4 bytes
-#define SETTINGS_HOOKBACK_YEQU	23				;4 bytes
+#define SETTINGS_HOOKBACK_WIN	19				;4 bytes  - WindowHook backup
+#define SETTINGS_HOOKBACK_YEQU	23				;4 bytes  - YEquHook backup
+#define SETTINGS_HOOKBACK_CUR	27				;4 bytes  - CursorHook backup
+#define SETTINGS_MONVECBACK		31				;13 bytes - Monitor vector backup
+#define SETTINGS_HOOKBACK_APP	44				;4 bytes  - AppChangeHook backup
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
@@ -189,15 +194,24 @@ trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
 ; OS Equates
 APIFlg			equ 28h
 appAllowContext		equ 0           ;App wants context changes to happen
-hookflags3		equ 35h ;also sysHookFlg1
 _SetAppChangeHook = 5011h
 _ClrAppChangeHook =	5014h
 appChangeHookPtr .equ	09E91h
-hookflags4		.equ	$36f
+hookflags2		.equ 	34h
+hookflags3		.equ 	35h ;also sysHookFlg1
+hookflags4		.equ	36h
 yEqualsHookPtr	.equ	09E79h
 _SetYEquHook	.equ	4FB4h
 _ClrYEquHook	.equ	4FB7h
 yEquHookActive	.equ 	4		;1 = Y= hook active
+appChangeHookActive .equ 2
+monQueue		.equ	$8669
+PlotEnabled1	.equ	$9812
+PlotEnabled2	.equ	$9824
+PlotEnabled3	.equ	$9836
+menuCurCol		.equ	$9d83
+_ClearAppTitle	.equ	5056h
+_maybe_MonRestart .equ	$4fba
 
 .list
 
@@ -234,15 +248,196 @@ Page0Start:
 
 ASMStart:
 ProgramStart:
-	; Initialize all the hooks
+	; Initialize all the hooks via a nice menu
+	call LTS_CacheAV
 
 	; Save the appChangeHook
-	.warn "Need to save and restore AppChangeHook"
+	call GetCurrentPage
+	ld b,a
+	ld a,(appChangeHookPtr+2)
+	sub b
+	jr z,ProgramStart_appInstalled
 
+	ld a,SETTINGS_HOOKBACK_APP
+	call LTS_GetPtr						;to hl
+	ld de,appChangeHookPtr
+	ex de,hl
+	ld bc,3
+	ldir
+	ld a,(flags + hookflags4)			; contains windowHookActive
+	and 1 << appChangeHookActive
+	ld (de),a
+	ld a,1
+ProgramStart_appInstalled:
+	xor 1			; 1 <-> 0
+	add a,2
+	ld b,a			; b = number of menu options
+	push bc
+		bcall(_ClrLCDFull)
+		bcall(_HomeUp)
+		call DisplayAppTitle
+		ld de,14
+		ld hl,40
+		ld ix,bigicon
+		call DrawSprite_4Bit_Enlarge
+		ld hl,1+(8*256)
+		ld (currow),hl
+		ld hl,Text_G3DCName
+		call PutsApp						; Display App name
+		ld hl,98
+		ld (pencol),hl
+		ld l,76								; d set to 0 by previous ld de
+		ld (penrow),hl
+		ld hl,Text_G3DCDesc
+		call VPutsApp						; Display small description text below
+		pop bc
+	ld c,0									; b = # items; c = selected item
+ProgramStart_MainMenuDisplay:
+	ld hl,4+(0*256)
+	ld (currow),hl
+
+	ld a,b
+	sub 2
+	ld hl,MMenu_JTable
+	add a,a
+	add a,a
+	ld e,a
+	ld d,0
+	add hl,de
+	push hl
+		push bc
+ProgramStart_MainMenuDisplayLoop:
+			push bc
+				push hl
+					ld a,(hl)
+					inc hl
+					ld h,(hl)
+					ld l,a
+					call PutsApp
+					ld h,0
+					ld a,(currow)
+					inc a
+					ld l,a
+					ld (currow),hl	; 0->col, row+1->row
+					pop hl
+				inc hl
+				inc hl
+				pop bc
+			djnz ProgramStart_MainMenuDisplayLoop
+ProgramStart_MainMenuLoop_Outer:
+			pop bc
+ProgramStart_MainMenuLoop_OuterNoPopBC:
+		pop de
+	push de
+		push bc
+			ld h,0
+			ld a,4
+			add a,c
+			ld l,a
+			ld (currow),hl			; 0->col, c+4->row
+			push hl
+				ld l,c
+				ld h,0
+				ex de,hl
+				add hl,de
+				add hl,de
+				ld a,(hl)
+				inc hl
+				ld h,(hl)
+				ld l,a
+				push hl
+					ld de,COLOR_WHITE
+					ld bc,COLOR_BLACK
+					call PutsColored
+					pop de
+				pop hl
+			ld (currow),hl
+			push de
+			
+ProgramStart_MainMenuLoop_Inner:
+				bcall(_getkey)
+				or a
+				jr z,ProgramStart_MainMenuLoop_Inner
+				pop hl
+			push af
+				ld bc,COLOR_WHITE
+				ld de,COLOR_BLACK
+				call PutsColored
+				pop af
+			
+			pop bc
+		cp kUp
+		jr nz,ProgramStart_MainMenuLoop_Inner_NotUp
+		dec c
+		bit 7,c
+		jr z,ProgramStart_MainMenuLoop_OuterNoPopBC
+		ld c,b
+		dec c
+		jr ProgramStart_MainMenuLoop_OuterNoPopBC
+ProgramStart_MainMenuLoop_Inner_NotUp:
+		cp kDown
+		jr nz,ProgramStart_MainMenuLoop_Inner_NotDown
+		inc c
+		ld a,c
+		cp b
+		jr nz,ProgramStart_MainMenuLoop_OuterNoPopBC
+		ld c,0
+		jr ProgramStart_MainMenuLoop_OuterNoPopBC
+ProgramStart_MainMenuLoop_Inner_NotDown:
+		cp kClear
+		jr z,ProgramStart_Quit
+		cp k1
+		jr z,ProgramStart_Install
+		cp k2
+		jr nz,ProgramStart_Not2
+		ld a,b
+		cp 2
+		jr z,ProgramStart_Quit
+		jr ProgramStart_Uninstall
+ProgramStart_Not2:
+		cp k3
+		jr nz,ProgramStart_Not3
+		ld a,b
+		cp 3
+		jr z,ProgramStart_Quit
+		jr ProgramStart_MainMenuLoop_OuterNoPopBC
+ProgramStart_Not3:
+		cp kEnter
+		jr z,ProgramStart_DoAndQuit
+		cp kAlphaEnter
+		jr nz,ProgramStart_MainMenuLoop_OuterNoPopBC
+		
+ProgramStart_DoAndQuit:
+		pop hl
+	ld a,c
+	or a
+	jr z,ProgramStart_Install
+	ld a,b
+	sub c
+	dec a
+	jr z,ProgramStart_Quit
+ProgramStart_Uninstall:
+	ld a,SETTINGS_HOOKBACK_APP
+	call LTS_GetPtr						;to hl
+	ld de,appChangeHookPtr
+	ld bc,3
+	ldir
+	ld a,(flags + hookflags4)
+	and $ff^(1 << appChangeHookActive)
+	or (hl)
+	ld (flags + hookflags4),a
+	jr ProgramStart_Quit
+
+ProgramStart_Install:
 	; Set up the appChangeHook
+	res 1,(iy+$3A)							;?????
 	call GetCurrentPage
 	ld hl,appChangeHook						;the ACTUAL appChange hook.
 	bcall(_SetAppChangeHook)
+	
+ProgramStart_Quit:
+	; Cleanup/quit
+	call DisplayNormal
 	bjump(_JForceCmdNoChar)
 
 ; b is current app, a is new app
@@ -268,18 +463,7 @@ appChangeHook:
 				ld a,c
 				cp kYequ
 				jr nz,appChangeHook_CheckMode
-				push de
-					ld a,SETTINGS_AVOFF_MODE
-					call LTS_GetPtr
-					pop af
-				scf
-				rl a
-				and %00000011
-				ld (hl),a
 
-				;cp %00000011
-				;jr nz,appChangeHook_Done
-				
 				; Back up the current Yequ hook
 				ld a,SETTINGS_HOOKBACK_YEQU
 				call LTS_GetPtr						;to hl
@@ -288,7 +472,7 @@ appChangeHook:
 				ld bc,3
 				ldir
 				ld a,(flags + hookflags3)			; contains yEquHookActive
-				and $ff^(1 << yEquHookActive)
+				and 1 << yEquHookActive
 				ld (de),a
 				
 				; Set up new Yequ hook
@@ -303,12 +487,9 @@ appChangeHook_Done:
 
 appChangeHook_CheckMode:
 				ld a,d
-				cp %00000011
-				jr z,appChangeHook_CheckWindow				; If it's zero, we haven't triggered 3D mode yet
+				or a
+				jr nz,appChangeHook_CheckWindow				; If it's zero, we haven't triggered 3D mode yet
 appChangeHook_Invalid:
-				ld a,SETTINGS_AVOFF_MODE
-				call LTS_GetPtr
-				ld (hl),0
 				jr appChangeHook_Done
 
 appChangeHook_CheckWindow:
@@ -324,7 +505,7 @@ appChangeHook_CheckWindow:
 				ld bc,3
 				ldir
 				ld a,(flags + hookflags3)			; contains windowHookActive
-				and $ff^(1 << windowHookActive)
+				and 1 << windowHookActive
 				ld (de),a
 				
 				; Set up new Window hook
@@ -1688,6 +1869,7 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "ltstore.asm"
 #include "winhook.asm"
 #include "yequhook.asm"
+#include "bigicon.inc"
 
 ;------------------------------------------------------------------------------- SPRITES
 spriteup_black_palette:
@@ -1884,6 +2066,27 @@ AppIcon:
 	.db $00,$01,$1f,$f1,$00,$11,$00,$00
 	.db $00,$00,$01,$11,$11,$00,$00,$00
 Header_Icon_End:
+
+Text_G3DCName:
+	.db "Graph3DC 1.0",0
+Text_G3DCDesc:
+	.db "3D Graphing App",0
+
+Text_MMenu1a:
+	.db "1. Install App         ",0
+Text_MMenu2a:
+	.db "2. Cancel              ",0
+
+Text_MMenu1b:
+	.db "1. Reinstall/Repair App",0
+Text_MMenu2b:
+	.db "2. Uninstall App       ",0
+Text_MMenu3b:
+	.db "3. Cancel              ",0
+
+MMenu_JTable:
+	.dw Text_MMenu1a, Text_MMenu2a
+	.dw Text_MMenu1b, Text_MMenu2b, Text_MMenu3b
 
 Page0End:
 .echo "Page 0 has ", (Page0End-Page0Start), "/16384 bytes allocated\n"

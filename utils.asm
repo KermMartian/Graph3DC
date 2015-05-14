@@ -307,6 +307,10 @@ blank_loop:
 	jr	nz,blank_loop
 	ret
 
+PutsColored:
+	call SetTextColors
+	set textEraseBelow,(iy+textFlags)
+	set 4,(iy+$4a)							; Puts should listen to colored text
 PutSApp:
 	ld a,(hl)
 	inc hl
@@ -861,3 +865,27 @@ GetCurrentPage:
 		pop bc
 	ret
 	
+VPutsColored:
+	call SetTextColors
+VPutSApp:				;display text in small font
+	ld a,(hl)
+	inc	hl
+	inc	a
+	dec	a			;use inc and dec to preserve carry
+	ret	z
+	push hl           
+		push de
+			bcall(_VPutMap)
+			pop de
+		pop hl
+	jr VPutSApp
+	
+ResetColors:
+	ld de,COLOR_BLACK
+	ld bc,COLOR_WHITE
+SetTextColors:
+	ld (drawBGColor),bc
+	ld (textBGColor),bc
+	ld (drawFGColor),de
+	ld (textFGColor),de
+	ret

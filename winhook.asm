@@ -32,6 +32,7 @@ windowHook_Not2:
 windowHook_Not3:
 	dec a
 	jr nz,windowHook_Not4
+	call DisplayAppTitle
 	ld hl,winMenu_sWindow
 	call PutsApp
 	or 1

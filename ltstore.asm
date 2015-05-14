@@ -90,7 +90,15 @@ LTS_CreateAV:
 	ld (hl),e
 	inc hl
 	ld (hl),d				; Offset 17:	MaxY = default
-	
+	inc hl
+
+	ld (hl),0
+	ld d,h
+	ld e,l
+	inc de
+	ld bc,29-1				; Offsets 19-44: hook backups and mon vec backups
+	ldir
+
 	jr LTS_CacheAV
 	
 AVName:
