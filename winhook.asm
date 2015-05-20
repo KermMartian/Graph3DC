@@ -1,5 +1,10 @@
 windowHook:
 	.db $83
+	call SetSpeedFast
+	push hl
+		ld hl,SETTINGS_HOOKBACK_WIN
+		call HookChainer
+	ret nz							;other hook said to do something /non-standard/
 	or a
 	jr nz,windowHook_Not0
 	or $ff
@@ -32,6 +37,8 @@ windowHook_Not2:
 windowHook_Not3:
 	dec a
 	jr nz,windowHook_Not4
+	; Initialize things for the Window menu
+	call LTS_CacheAV
 	call DisplayAppTitle
 	ld hl,winMenu_sWindow
 	call PutsApp
@@ -49,12 +56,10 @@ windowHook_GetValueToOp1:
 		ld e,a
 		ld d,0
 		add hl,de
-		add hl,de
 		ld a,(hl)
-		inc hl
-		ld h,(hl)
-		ld l,a
-		; Loaded address of value from table
+		; Loaded offset into AppVar of value from table
+		call LTS_GetPtr
+		; Got actual pointer in AppVar
 		ld a,(hl)
 		inc hl
 		ld h,(hl)
@@ -68,7 +73,8 @@ windowHook_GetValueToOp1:
 
 	call FPtoOP1
 	bcall(_OP1toOP4)
-	ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
+	ld a,SETTINGS_AVOFF_SCALEF
+	call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
 	call FPtoOP1
 	bcall(_OP4toOP2)
 	bcall(_FPMult)
@@ -93,12 +99,10 @@ windowHook_SaveOp1toValue:
 		ld e,a
 		ld d,0
 		add hl,de
-		add hl,de
 		ld a,(hl)
-		inc hl
-		ld h,(hl)
-		ld l,a
-		; Loaded address of value from table
+		; Loaded offset into AppVar of value from table
+		call LTS_GetPtr
+		; Got actual pointer in AppVar
 		pop af
 	cp 2
 	jr z,windowHook_SaveSimpleByte
@@ -108,7 +112,8 @@ windowHook_SaveOp1toValue:
 	;val = (init * scalefactor) -> init = val / scalefactor
 	push hl
 		bcall(_OP1toOP4)
-		ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
+		ld a,SETTINGS_AVOFF_SCALEF
+		call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
 		call FPtoOP1
 		bcall(_OP1toOP2)
 		bcall(_OP4toOP1)

@@ -3,8 +3,13 @@
 ; http://www.cemetech.net
 
 ; TODO: 
-; [X] Fix line routine
-; [ ] Create variable for saving state
+; [ ] Detect entirely-offscreen lines and do not draw
+; [ ] Implement better line-cropping as in Graph3DP?
+; [ ] Implement Format menu
+; [ ] Implement proper variable input at Y= menu
+; [ ] Add graph styles on Y= menu and proper storage
+; [ ] Test interaction between Transform and G3DC in all menus
+; [ ] Lots of beta-testing!
 .echo "-----------------------\n"
 
 .binarymode intel                 ; TI-83+ Application
@@ -23,6 +28,7 @@ NUM_PAGES = 1
 ; Assembly-time flags
 #define DEBUG_EQ
 #define DEBUG_GRAPH
+#define GAMMA_ZERO					; Gamma is always zero in rotation
 
 myflag .equ asm_flag1
 someflagbit equ 0
@@ -38,7 +44,6 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var fp8.8, scalefactor
 .var fp8.8, step_x
 .var fp8.8, step_y
-.var fp8.8, zoomfactor
 .var fp8.8, val_min_z
 .var fp8.8, val_max_z			;TODO: Consider making these OS floats
 .var fp8.8, cam_radius
@@ -48,6 +53,9 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var fp8.8, val_x
 .var fp8.8, val_y
 .var fp8.8, val_z
+.var fp8.8, MapFactorX
+.var word,  MapFactorY
+.var word,  PxlMinY
 
 .var fp8.8, frac				;Value 0.0 to 1.0 for color computation
 .var fp8.8, clr_r
@@ -84,20 +92,21 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var byte, axismode
 .var byte, dim_x
 .var byte, dim_y
-.var byte, curmenu
-.var byte, menushown
 .var byte, ateq
-.var byte, whichtrace
-.var byte, high_bank_page
-.var byte, at_step_x
-.var byte, at_step_y
-.var byte, counteqs
-.var byte, erase_mode
 ; The following used for lines and points
 .var word, xstart
 .var word, ystart
 .var word, xyinc
 .var word, lineColour
+
+.var byte, curmenu
+.var byte, whichtrace
+.var byte, high_bank_page
+.var byte, high_bank_mask
+.var byte, at_step_x
+.var byte, at_step_y
+.var byte, counteqs
+.var byte, erase_mode
 .var word, lts_av
 
 ; The following are pointers to *not the beginning* that are moved as rendering progresses
@@ -132,6 +141,11 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define DEFAULT_XY_MIN $F800
 #define DEFAULT_XY_MAX $0800
 
+#define AXIS_MODE_NONE 0				; Neither axes nor bounds
+#define AXIS_MODE_A 1					; Axes only
+#define AXIS_MODE_B 2					; Bounds only
+#define AXIS_MODE_AB 3					; Both axes and bounds
+
 #define FP_MAX	$7FFF
 #define	FP_MIN	$8000
 #define FP_PI	$0324
@@ -164,6 +178,9 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_HOOKBACK_CUR	27				;4 bytes  - CursorHook backup
 #define SETTINGS_MONVECBACK		31				;13 bytes - Monitor vector backup
 #define SETTINGS_HOOKBACK_APP	44				;4 bytes  - AppChangeHook backup
+#define SETTINGS_HOOKBACK_MENU	48				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_GRPH	52				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_KEY	56				;4 bytes  - KeyHook backup
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
@@ -182,7 +199,7 @@ axes_z			.equ	axes_y + (2*20)
 trash_ram_end	.equ	axes_z + (2*20)		;dialogCBRAM + 16		; 16 bytes for (windowMenuCallbackEnd - windowMenuCallback)
 trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
 .echo "Trash RAM page has ", trash_ram_fill, "/16384 bytes allocated\n"
-.if trash_ram_fill > $4000
+.if trash_ram_fill > ($4000-$200)
 .error "Trash RAM page has overflowed!
 .endif
 
@@ -212,7 +229,19 @@ PlotEnabled3	.equ	$9836
 menuCurCol		.equ	$9d83
 _ClearAppTitle	.equ	5056h
 _maybe_MonRestart .equ	$4fba
-
+MenuHookPtr		.equ	$9EA1
+MenuHookActive	.equ	6
+GraphHookActive	.equ	3
+_SetMenuHook	.equ	$5068
+_ClrMenuHook	.equ	$506B
+GraphHookPtr	.equ	$9E74
+;_SetGraphHook	.equ	$4F9C
+;_ClrGraphHook	.equ	$4F9F
+mZoom			.equ	04h
+mZoom3D			.equ	94h
+fastSpeed		.equ	5
+speedFlags		.equ	24h
+_GetBytePaged	.equ	_LoadBIndPaged
 .list
 
 ;-----------------------------------
@@ -248,6 +277,7 @@ Page0Start:
 
 ASMStart:
 ProgramStart:
+	call SetSpeedFast
 	; Initialize all the hooks via a nice menu
 	call LTS_CacheAV
 
@@ -258,15 +288,34 @@ ProgramStart:
 	sub b
 	jr z,ProgramStart_appInstalled
 
-	ld a,SETTINGS_HOOKBACK_APP
+	push bc
+		ld a,SETTINGS_HOOKBACK_APP
+		call LTS_GetPtr						;to hl
+		ld de,appChangeHookPtr
+		ex de,hl
+		ld bc,3
+		ldir
+		ld a,(flags + hookflags4)			; contains windowHookActive
+		and 1 << appChangeHookActive
+		ld (de),a
+		pop bc
+	
+	ld a,(MenuHookPtr+2)
+	cp b
+	jr z,ProgramStart_HookBackupDone
+
+	; Back up the current Menu hook
+	ld a,SETTINGS_HOOKBACK_MENU
 	call LTS_GetPtr						;to hl
-	ld de,appChangeHookPtr
+	ld de,MenuHookPtr
 	ex de,hl
 	ld bc,3
 	ldir
-	ld a,(flags + hookflags4)			; contains windowHookActive
-	and 1 << appChangeHookActive
+	ld a,(flags + hookflags4)			; contains MenuHookActive
+	and 1 << MenuHookActive
 	ld (de),a
+
+ProgramStart_HookBackupDone:
 	ld a,1
 ProgramStart_appInstalled:
 	xor 1			; 1 <-> 0
@@ -416,16 +465,20 @@ ProgramStart_DoAndQuit:
 	sub c
 	dec a
 	jr z,ProgramStart_Quit
+
 ProgramStart_Uninstall:
-	ld a,SETTINGS_HOOKBACK_APP
-	call LTS_GetPtr						;to hl
-	ld de,appChangeHookPtr
-	ld bc,3
-	ldir
-	ld a,(flags + hookflags4)
-	and $ff^(1 << appChangeHookActive)
-	or (hl)
-	ld (flags + hookflags4),a
+	; Restore the AppChangeHook area
+	ld de,appChangeHookPtr+2
+	ld bc,($ff^(1 << appChangeHookActive))*256 + SETTINGS_HOOKBACK_APP
+	ld hl,flags + hookflags4
+	call DisableHook
+
+	; Restore the MenuHook area
+	ld de,MenuHookPtr+2
+	ld bc,($ff^(1 << MenuHookActive))*256 + SETTINGS_HOOKBACK_MENU
+	ld hl,flags + hookflags4
+	call DisableHook
+
 	jr ProgramStart_Quit
 
 ProgramStart_Install:
@@ -434,7 +487,12 @@ ProgramStart_Install:
 	call GetCurrentPage
 	ld hl,appChangeHook						;the ACTUAL appChange hook.
 	bcall(_SetAppChangeHook)
-	
+
+	; Set up new Yequ hook
+	call GetCurrentPage
+	ld hl,MenuHook
+	bcall(_SetMenuHook)
+
 ProgramStart_Quit:
 	; Cleanup/quit
 	call DisplayNormal
@@ -464,7 +522,7 @@ appChangeHook:
 				cp kYequ
 				jr nz,appChangeHook_CheckMode
 
-				; Back up the current Yequ hook
+				; Back up the current YequHook
 				ld a,SETTINGS_HOOKBACK_YEQU
 				call LTS_GetPtr						;to hl
 				ld de,yEqualsHookPtr
@@ -495,9 +553,9 @@ appChangeHook_Invalid:
 appChangeHook_CheckWindow:
 				ld a,c
 				cp kWindow
-				jr nz,appChangeHook_CheckZoom
+				jr nz,appChangeHook_CheckGraph
 				
-				; Back up the current Window hook
+				; Back up the current WindowHook
 				ld a,SETTINGS_HOOKBACK_WIN
 				call LTS_GetPtr						;to hl
 				ld de,windowHookPtr
@@ -514,799 +572,162 @@ appChangeHook_CheckWindow:
 				bcall(_SetWindowHook)
 				jr appChangeHook_Done
 
-appChangeHook_CheckZoom:
-				ld a,c
-				cp kWindow
+appChangeHook_CheckGraph:
+				cp kGraph
 				jr nz,appChangeHook_Invalid
 
+				; Back up the current GraphHook
+				ld a,SETTINGS_HOOKBACK_GRPH
+				call LTS_GetPtr						;to hl
+				ld de,GraphHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags3)			; contains MenuHookActive
+				and 1 << GraphHookActive
+				ld (de),a
+				
+				; Set up new Graph hook
+				call GetCurrentPage
+				ld hl,GraphHook
+				bcall(_SetGraphHook)
+
+#ifdef false
+				; Back up the current RawKeyHook
+				ld a,SETTINGS_HOOKBACK_KEY
+				call LTS_GetPtr						;to hl
+				ld de,RawKeyHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags2)			; contains MenuHookActive
+				and 1 << RawKeyHookActive
+				ld (de),a
+				
+				; Set up new RawKeyHook
+				call GetCurrentPage
+				ld hl,GraphKeyHook
+				bcall(_SetRawKeyHook)
+#endif
+
+				jr appChangeHook_Done
+
 CleanTempHooks:
-	call GetCurrentPage
-	ld b,a
-CleanTempHooks_Window:
-	ld a,(windowHookPtr+2)
-	cp b
-	jr nz,CleanTempHooks_YEqu
-	push bc
-		ld a,SETTINGS_HOOKBACK_WIN
-		call LTS_GetPtr						;to hl
-		ld de,windowHookPtr
-		ld bc,3
-		ldir
-		ld a,(flags + hookflags3)
-		and $ff^(1 << windowHookActive)
-		or (hl)
-		ld (flags + hookflags3),a
-		pop bc
-CleanTempHooks_YEqu:
-	ld a,(yEqualsHookPtr+2)
-	cp b
-	jr nz,CleanTempHooks_Window_Zoom
-	push bc
-		ld a,SETTINGS_HOOKBACK_YEQU
-		call LTS_GetPtr						;to hl
-		ld de,yEqualsHookPtr
-		ld bc,3
-		ldir
-		ld a,(flags + hookflags3)
-		and $ff^(1 << yEquHookActive)
-		or (hl)
-		ld (flags + hookflags3),a
-		pop bc
-CleanTempHooks_Window_Zoom:
+	;WindowHook
+	ld de,windowHookPtr+2
+	ld bc,($ff^(1 << windowHookActive))*256 + SETTINGS_HOOKBACK_WIN
+	ld hl,flags + hookflags3
+	call DisableHook
+
+	;YEqualsHook
+	ld de,yEqualsHookPtr+2
+	ld bc,($ff^(1 << yEquHookActive))*256 + SETTINGS_HOOKBACK_YEQU
+	ld hl,flags + hookflags3
+	call DisableHook
+
+	;GraphHook
+	ld de,GraphHookPtr+2
+	ld bc,($ff^(1 << GraphHookActive))*256 + SETTINGS_HOOKBACK_GRPH
+	ld hl,flags + hookflags3
+	call DisableHook
+	
+	;RawKeyHook
+	ld de,RawKeyHookPtr+2
+	ld bc,($ff^(1 << RawKeyHookActive))*256 + SETTINGS_HOOKBACK_KEY
+	ld hl,flags + hookflags2
+	call DisableHook
+
 	ret
 
 ;-----------------------------------
-Graph:
-	; Variable allocation and initialization goes here
-Graph_Rezoom:
-Graph_Recolor:
-	call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
-	
-	; Re-set up graph-related equations
-	ld hl,FP_MAX
-	ld (val_min_z),hl
-	ld hl,FP_MIN
-	ld (val_max_z),hl
-
-	ld hl,(max_x)						;step_x = (max_x-min_x)/(float)(dim_x-1);
-	ld de,(min_x)
-	call subhlde_fp
-	push hl
-		ld a,(dim_x)
-		ld c,a
-		dec c
-		call g3dc_divhlc
-		ld (step_x),hl
-
-		ld hl,(max_y)						;step_y = (max_y-min_y)/(float)(dim_y-1);
-		ld de,(min_y)
-		or a
-		call subhlde_fp
-		push hl
-			ld a,(dim_y)
-			ld c,a
-			dec c
-			call g3dc_divhlc
-			ld (step_y),hl
-
-			pop hl							;cam_radius = 2.0f*MAX(max_x-min_x, max_y-min_y);
-		pop de
-	call MaxHLDE
-	ld e,l
-	ld d,h
-	call addhlde_fp
-	ld (cam_radius),hl
-	
-	ld a,(dim_x)							;for tracing
-	srl a
-	ld (at_step_x),a
-	ld a,(dim_y)
-	srl a
-	ld (at_step_y),a
-	ld a,$ff
-	ld (whichtrace),a
-	xor a
-	ld (counteqs),a
-	ld (menushown),a
-
-	ld hl,FP_PI
-	ld (alpha),hl
-	ld hl,0
-	ld (beta),hl
-	ld (gamma),hl
-
-	; Figure out which equations are enabled
-#ifdef DEBUG_GRAPH
-	ld a,1
-	ld (counteqs),a
-#else
-	.error "Don't know how to count equations yet!"
-#endif
-
-	.warn "Need to draw an hourglass or progress bar"
-
-	;Iterate over all equations
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld b,MAX_EQS
-#endif
-
-	; Initialize pointers into big stored data chunks
-	ld hl,grid_x
-	ld (pgrid_x),hl
-	ld hl,grid_y
-	ld (pgrid_y),hl
-	ld hl,grid_z
-	ld (pgrid_z),hl
-
-Graph_Compute_EQ:
+; Disables the given hook
+; Inputs:
+;   - de points to third byte of Ptr (eg, RawKeyHookPtr+2)
+;   - b holds iy+hookflag mask
+;   - hl holds iy+hookflag pointer
+;   - c holds AppVar offset
+DisableHook:
 	push bc
-		ld a,(dim_x)
-		ld c,a
-Graph_Compute_EQ_Outer:
-		push bc
-			ld a,c
-			dec a
-			ld de,(step_x)
-			call signed_multade
-			ld de,(min_x)
-			call addhlde_fp
-			ld (val_x),hl
-			ld de,(pgrid_x)
-			ex de,hl
-			ld (hl),e
-			inc hl
-			ld (hl),d
-			pop bc
-
-		ld a,(dim_y)
+		ld a,(de)
 		ld b,a
-Graph_Compute_EQ_Inner:
-		push bc
-		
-			; Update the val_y and pgrid_y values
-			ld a,b
-			dec a
-			ld de,(step_y)
-			call signed_multade
-			ld de,(min_y)
-			call addhlde_fp
-			ld (val_y),hl
-			ld de,(pgrid_y)
-			ex de,hl
-			ld (hl),e
-			inc hl
-			ld (hl),d
-			inc hl
-			ld (pgrid_y),hl
-			
-			; Update the stored x and pgrid_x values
-			ld hl,(pgrid_x)
-			ld de,(val_x)
-			ld (hl),e
-			inc hl
-			ld (hl),d
-			inc hl
-			ld (pgrid_x),hl
-
-			; Compute output value
-#ifdef DEBUG_GRAPH
-			;ld hl,0
-			ld hl,(val_x)
-			ld de,(val_y)
-			call addhlde_fp
-			ex de,hl
-			ld bc,$0080
-			call signed_multbcde_fp
-			ld b,d
-			ld c,e
-			call signed_multbcde_fp
-			ex de,hl
-#else
-			.error "Need to actually compute something here!"
-			; To fit into the constraints of our fixed-point numbers, we
-			; need to pre-scale X and Y, feed to our equation and get Z,
-			; then post-un-scale Z. Keeping our FP numbers within the bounds
-			; of sanity is key.
-#endif
-
-			; Store computed Z value and update pointer
-			ld de,(pgrid_z)
-			ex de,hl
-			ld (hl),e
-			inc hl
-			ld (hl),d
-			inc hl
-			ld (pgrid_z),hl
-			push de
-				ld hl,(val_max_z)
-				call MaxHLDE
-				ld (val_max_z),hl
-				pop de
-			ld hl,(val_min_z)
-			call MinHLDE
-			ld (val_min_z),hl
-
-			pop bc
-		dec b
-		jp nz,Graph_Compute_EQ_Inner
-		dec c
-		jp nz,Graph_Compute_EQ_Outer
-		pop bc
-	dec b
-	jp nz,Graph_Compute_EQ
-	
-	; Set up the axes and bounding box arrays here
-	ld hl,(max_x)
-	push hl
-		ld de,(min_x)
-		call subhlde_fp
-		ex de,hl
-		ld bc,$0010
-		call signed_multbcde_fp
-		ld (sub_min_x),de
-		push de
-			ex de,hl
-			call negate_hl
-			ld (negsub_min_x),hl
-			pop de
-		pop hl
-	call subhlde_fp
-	ld (sub_max_x),hl
-
-	ld hl,(max_y)
-	push hl
-		ld de,(min_y)
-		call subhlde_fp
-		push hl
-			ex de,hl
-			ld bc,$0010
-			call signed_multbcde_fp
-			ld (sub_min_y),de
-			push de
-				ex de,hl
-				call negate_hl
-				ld (negsub_min_y),hl
-				pop de
-			pop bc
-		pop hl
-	call subhlde_fp
-	ld (sub_max_y),hl
-
-	ld hl,(val_max_z)
-	push hl
-		ld de,(val_min_z)
-		call subhlde_fp
-		ld e,c
-		ld d,b
-		call MaxHLDE
-		ex de,hl
-		ld bc,$0010
-		call signed_multbcde_fp
-		pop hl
-	call subhlde_fp
-	ld (sub_max_z),hl
-
-	ld hl,$0000
-	ld (val_zero),hl
-
-	ld b,AXES_BOUND_COORDS
-	ld hl,AxesBoundsX
-	ld de,axes_x
-	call CopyContainCoords
-
-	ld b,AXES_BOUND_COORDS
-	ld hl,AxesBoundsY
-	ld de,axes_y
-	call CopyContainCoords
-
-	ld b,AXES_BOUND_COORDS
-	ld hl,AxesBoundZ
-	ld de,axes_z
-	call CopyContainCoords	
-	
-	; Compute the colors for the graphs here
-	; Iterate over all equations
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld b,MAX_EQS
-#endif
-
-	ld hl,grid_z
-	ld (pgrid_z),hl
-	ld hl,grid_colors
-	ld (pgrid_colors),hl
-
-Graph_Color_EQ:
-	push bc
-		ld a,(dim_x)
-		ld c,a
-Graph_Color_EQ_Outer:
-		ld a,(dim_y)
-		ld b,a
-Graph_Color_EQ_Inner:
-		push bc
-			;float frac = (val_max_z==val_min_z)?0.5:((val_z-val_min_z)/(val_max_z-val_min_z));
-			ld hl,(pgrid_z)
-			ld e,(hl)
-			inc hl
-			ld d,(hl)
-			inc hl
-			ld (pgrid_z),hl
-			; de now contains val_z
-			push de
-				ld bc,$0080					;0.5
-				ld hl,(val_max_z)
-				ld de,(val_min_z)
-				call subhlde_fp
-				pop de
-			ld a,h
-			or l
-			jr z,Graph_Color_EQ_Inner_StoreFracBC
-			push hl
-				ld hl,(val_min_z)
-				ex de,hl
-				call subhlde_fp
-				pop de
-			; divide hl by de here
-			ld c,0
-			ld a,h
-			ld b,l
-			inc de							; Fudge the maximum to $FF instead of $100
-			call signed_divabcde			; returns result in abc (but a.bc/d.e = ab.c)
-Graph_Color_EQ_Inner_StoreFracBC:
-			ld (frac),bc			
-			ld a,(colormode)
-			or a
-			jp nz,Graph_Color_EQ_Inner_ColorMode1
-Graph_Color_EQ_Inner_ColorMode0:
-			;Spectrum render, red component
-			ld hl,$0040						; 0.25
-			push hl
-				ld de,(frac)
-				call subhlde_fp
-				call abshl_fp
-				pop de
-			ex de,hl
-			call subhlde_fp					;r = 0.25 - abs(0.25 - frac)
-			ld bc,0
-			bit 7,h
-			jr nz,{@}
-			ld bc,$0600
-@:
-			ex de,hl
-			call signed_multbcde_fp
-			ld a,d
-			ld b,a
-			ld c,e
-			or a
-			jr z,{@}
-			ld bc,$00ff
-@:
-			ld hl,(frac)
-			ld de,$0040						; 0.25
-			call cphlde_fp
-			jr nc,Graph_Color_EQ_Inner_ColorMode0_StoreR
-			ld hl,$0100
-			add hl,bc
-			srl h
-			rr l
-			ld b,h
-			ld c,l
-Graph_Color_EQ_Inner_ColorMode0_StoreR:
-			rrc b
-			jr nc,{@}
-			ld c,$ff
-@:
-			ld a,c
-			ld (clr_r),a
-			;Spectrum render, green component
-			ld hl,$0080						; 0.5
-			ld de,(frac)
-			call subhlde_fp
-			call abshl_fp
-			ld de,$0055						; 1/3
-			ex de,hl
-			call subhlde_fp					;g = 1/3 - abs(0.5 - frac)
-			ld bc,0
-			bit 7,h
-			jr nz,{@}
-			ld bc,$0600
-@:
-			ex de,hl
-			call signed_multbcde_fp
-			ld a,d
-			ld b,a
-			ld c,e
-			or a
-			jr z,{@}
-			ld bc,$00ff
-@:
-			rrc b
-			jr nc,{@}
-			ld c,$ff
-@:
-			ld a,c
-			ld (clr_g),a
-			;Spectrum render, blue component
-			ld hl,$00C0						; 0.75
-			ld de,(frac)
-			call subhlde_fp
-			call abshl_fp
-			ld de,$0040
-			ex de,hl
-			call subhlde_fp					;b = 0.25 - abs(0.75 - frac)
-			ld bc,0
-			bit 7,h
-			jr nz,{@}
-			ld bc,$0600
-@:
-			ex de,hl
-			call signed_multbcde_fp
-			ld a,d
-			ld b,a
-			ld c,e
-			or a
-			jr z,{@}
-			ld bc,$00ff
-@:
-			ld de,(frac)
-			ld hl,$00C0						; 0.75
-			call cphlde_fp
-			jr nc,Graph_Color_EQ_Inner_ColorMode0_StoreB
-			ld hl,$0100
-			add hl,bc
-			srl h
-			rr l
-			ld b,h
-			ld c,l
-Graph_Color_EQ_Inner_ColorMode0_StoreB:
-			rrc b
-			jr nc,{@}
-			ld c,$ff
-@:
-			ld a,c
-			ld (clr_b),a
-			jr Graph_Color_EQ_Inner_ColorFromRGB
-Graph_Color_EQ_Inner_ColorMode1:
-			dec a
-			jr nz,Graph_Color_EQ_Inner_ColorMode2
-			;a is already 0
-			ld (clr_r),a
-			ld de,(frac)
-			ld a,2
-			call multade
-			rrc h
-			jr nc,Graph_Color_EQ_Inner_ColorMode1_StoreG
-			ld hl,$00ff
-Graph_Color_EQ_Inner_ColorMode1_StoreG:
-			ld a,l
-			ld (clr_g),a
-			ld hl,$00ff
-			ld de,(frac)
-			or a
-			sbc hl,de
-			ex de,hl
-			ld a,2
-			call multade
-			rrc h
-			jr nc,Graph_Color_EQ_Inner_ColorMode1_StoreB
-			ld hl,$00ff
-Graph_Color_EQ_Inner_ColorMode1_StoreB:
-			ld a,l
-			ld (clr_b),a
-			jr Graph_Color_EQ_Inner_ColorFromRGB
-Graph_Color_EQ_Inner_ColorMode2:
-			; Default "flame" color mode, red to yellow
-			ld a,$ff
-			ld (clr_r),a
-			ld a,$00
-			ld (clr_b),a
-			ld a,(frac)					;LSB
-			ld (clr_g),a
-
-Graph_Color_EQ_Inner_ColorFromRGB:
-			ld a,(clr_r)				;Get fractional part of red
-			and $f8
-			ld b,a
-			ld a,(clr_g)
-			push af
-				rlc a
-				rlc a
-				rlc a
-				and $07					;Upper three bits of green with red
-				or b
-				ld b,a
-				pop af
-			sla a
-			sla a
-			sla a
-			and $e0						;Lower three bits of green to go with blue
-			ld c,a
-			ld a,(clr_b)
-			srl a
-			srl a
-			srl a
-			or c
-			ld c,a
-
-Graph_Color_EQ_Inner_StoreColor:
-			; Now store bc into the actual color
-			ld hl,(pgrid_colors)
-			ld (hl),c
-			inc hl
-			ld (hl),b
-			inc hl
-			ld (pgrid_colors),hl
-			
-			pop bc
-		dec b
-		jp nz,Graph_Color_EQ_Inner
-		dec c
-		jp nz,Graph_Color_EQ_Outer
-		pop bc
-	dec b
-	jp nz,Graph_Color_EQ
-	call TrashRAM_SwapOut
-
-Graph_Rerotate:
-	call TrashRAM_SwapIn						; NB: CAN'T CALL DCSE ROUTINES UNTIL SWAPOUT!
-	
-	; Time to handle the headache of rotation
-	ld hl,(alpha)
-	ld a,h
-	or l
-	ld hl,(beta)
-	or h
-	or l
-	ld hl,(gamma)
-	or h
-	or l
-	jp z,SkipRotate
-	; Alpha, beta, and/or gamma are non-zero, so do some rotation
-
-	; Compute costx/y/z, sintx/y/z, cx, cy, and cz
-	ld hl,(max_x)
-	ld de,(min_x)
-	call addhlde_fp
-	ld c,0
-	ld a,h
-	ld b,l
-	ld de,FP_2
-	call signed_divabcde			; returns result in abc (but a.bc/d.e = ab.c)
-	ld (cx),bc				;cx = (max_x + min_x)/2
-	ld (ex),bc
-
-	ld hl,(max_y)
-	ld de,(min_y)
-	call addhlde_fp
-	ld c,0
-	ld a,h
-	ld b,l
-	ld de,FP_2
-	call signed_divabcde			; returns result in abc (but a.bc/d.e = ab.c)
-	ld (cy),bc				;cy = (max_y + min_y)/2
-	ld (ey),bc
-	
-	ld hl,0
-	ld (cz),hl				;cz = 0.f
-	
-	ld hl,(alpha)
-	push hl
-		call mcosf
-		ld (costx),hl
-		pop hl
-	call msinf
-	ld (sintx),hl
-	ld hl,(beta)
-	push hl
-		call mcosf
-		ld (costy),hl
-		pop hl
-	call msinf
-	ld (sinty),hl
-	ld hl,(gamma)
-	push hl
-		call mcosf
-		ld (costz),hl
-		pop hl
-	call msinf
-	ld (sintz),hl
-	
-	ld hl,grid_x
-	ld (pgrid_x),hl
-	ld hl,grid_y
-	ld (pgrid_y),hl
-	ld hl,grid_z
-	ld (pgrid_z),hl
-
-	; Iterate over all equations
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld b,MAX_EQS
-#endif
-
-Graph_Rotate_EQ:
-	push bc
-		ld a,(dim_x)
-		ld c,a
-Graph_Rotate_EQ_Outer:
-		ld a,(dim_y)
-		ld b,a		
-		call Rotate_B_Points		;uses the vals based on pgrid_x/y/z
-		dec c
-		jp nz,Graph_Rotate_EQ_Outer
-		pop bc
-	dec b
-	jp nz,Graph_Rotate_EQ
-	
-Graph_Rotate_AxesBounds:
-	ld hl,axes_x
-	ld (pgrid_x),hl
-	ld hl,axes_y
-	ld (pgrid_y),hl
-	ld hl,axes_z
-	ld (pgrid_z),hl
-	ld b,AXES_BOUND_COORDS
-	call Rotate_B_Points		;uses the vals based on pgrid_x/y/z
-
-	ld hl,$0000
-	ld (alpha),hl
-	ld (beta),hl
-	ld (gamma),hl
-	
-SkipRotate:
-	call TrashRAM_SwapOut
-	
-Graph_Rerender:
-Graph_Redraw:
-	call TrashRAM_SwapIn						; NB: CAN'T CALL DCSE ROUTINES UNTIL SWAPOUT!
-
-	; Calculate camera position
-	ld hl,$0000
-	ld (cx),hl
-	ld (cy),hl
-	ld hl,(cam_radius)
-	call negate_hl
-	ld (cz),hl
-	
-	; Center was set above, (ex, ey); FP_EZ is a constant
-	; Ready to transform 3D coordinates into screen coordinates and display
-
-	; Initialize pointers into big stored data chunks
-	ld hl,grid_x
-	ld (pgrid_x),hl
-	ld hl,grid_y
-	ld (pgrid_y),hl
-	ld hl,grid_z
-	ld (pgrid_z),hl
-	ld hl,grid_sx
-	ld (pgrid_sx),hl
-	ld hl,grid_sy
-	ld (pgrid_sy),hl
-	
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld b,MAX_EQS
-#endif
-
-Graph_Map_EQ:
-	push bc
-		ld a,(dim_x)
-		ld c,a
-Graph_Map_EQ_Outer:
-		ld a,(dim_y)
-		ld b,a
-		call Map_B_Points
-		dec c
-		jp nz,Graph_Map_EQ_Outer
-		pop bc
-	dec b
-	jp nz,Graph_Map_EQ
-
-	ld hl,axes_x
-	ld (pgrid_x),hl
-	ld hl,axes_y
-	ld (pgrid_y),hl
-	ld hl,axes_z
-	ld (pgrid_z),hl
-	ld hl,axes_sx
-	ld (pgrid_sx),hl
-	ld hl,axes_sy
-	ld (pgrid_sy),hl
-	ld b,AXES_BOUND_COORDS
-	call Map_B_Points
-	
-	call TrashRAM_SwapOut
-Menu_4_Redraw:
-	xor a
-	call Graph_Render
-	
-	ld a,(axismode)
-	rrca
+		call GetCurrentPage
+		cp b
+		pop bc						;a now holds iy+hookflag mask
+	ret nz							;it wasn't our hook
+	ld a,(hl)
+	and b
 	push af
-		jr nc,Menu_4_Redraw_NoAxes
-		ld hl,(bgcolor)
-		call negate_hl
-		dec hl						;This makes negate_hl equivalent to cpl hl
-		ld (fgcolor),hl
-		ld hl,Offsets_Axes
-		ld b,9
-		call Graph_Render_FromOffsets
-Menu_4_Redraw_NoAxes:
+		push hl
+			ld a,3
+			add a,c
+			call LTS_GetPtr			;a offset -> hl pointer into AppVar
+			pop bc
 		pop af
-	rrca
-	jr nc,Menu_4_Redraw_NoBounds
-	ld hl,COLOR_GRAY
-	ld (fgcolor),hl
-	ld hl,Offsets_Bounds
-	ld b,12
-	call Graph_Render_FromOffsets
-Menu_4_Redraw_NoBounds:
-	
-	; Draw the onscreen sprites and things
-	ld a,(menushown)
-	or a
-	jr nz,Menu_4_Redraw_FullMenu
-	ld ix,spriteup_black
-	ld a,(bgcolor)
-	or a
-	jr z,Menu_4_Redraw_ShownSpriteUp
-	ld ix,spriteup_white
-Menu_4_Redraw_ShownSpriteUp:
-	ld de,20
-	ld hl,214
-	call DrawSprite_1Bit
-	ld de,86
-	ld hl,214
-	ld ix,switchaxes
-	call DrawSprite_2Bit
-	ld de,152
-	ld hl,214
-	ld ix,changecolor
-	call DrawSprite_8Bit
-	ld de,284
-	ld hl,214
-	ld ix,switchback
-	call DrawSprite_1Bit
-	jr Menu_4_Keys
-Menu_4_Redraw_FullMenu:
-	; TODO
-Menu_4_Keys:
-	bcall(_getcsc)
-	or a
-	jr z,Menu_4_Keys
-	cp skClear
-	ret z
-	push af
-		call Graph_Erase
-		pop af
-	ld bc,DELTA_ANGLE
-	cp skUp
-	jr z,Menu_4_Keys_StoreAlpha
-	cp skLeft
-	jr z,Menu_4_Keys_StoreBeta
-	ld bc,NEG_DELTA_ANGLE
-	cp skDown
-	jr z,Menu_4_Keys_StoreAlpha
-	cp skRight
-	jr z,Menu_4_Keys_StoreBeta
-	jp Menu_4_Redraw
-Menu_4_Keys_StoreAlpha:
-	ld (alpha),bc
-	jp Graph_Rerotate
-Menu_4_Keys_StoreBeta:
-	ld (beta),bc
-	jp Graph_Rerotate
-	
-Restart_Menu_Quit:
-Quit:
+	or (hl)
+	ld (bc),a						; ((iy+hookflag) & ~hookbit) | oldhookbit -> (iy+hookflag)
+	dec hl
+	ld bc,3
+	lddr
 	ret
 
+;-----------------------------------
+; Hook Chainer is used to chain hooks
+; Arguments:
+;  - hl = AV offset
+;  - Format of hl-pointed memory: ADL, ADH, PG, EN
+; Notes:
+;  - You must push hl before calling this
+;  - When this routine returns, the stack will be 4 bytes lower, because hl and de will be popped.
+;  - You MUST CALL this routine, not jump to it
+HookChainer:
+		push de
+			push af
+				push bc
+					push hl
+						ld hl,AVName
+						rst 20h
+						bcall(_chkfindsym)
+						pop hl
+					jr c,HookChainer_Continue
+					inc hl
+					inc hl								;Account for size
+					add hl,de
+					ld e,(hl)
+					inc hl
+					ld d,(hl)
+					inc hl
+					ld b,(hl)
+					inc hl
+					ld a,(hl)
+					or a
+					jr z,HookChainer_Continue
+					ld h,d
+					ld l,e
+					inc de
+					ld (Op1),de
+					ld a,b
+					ld (Op1+2),a
+					B_CALL(_GetBytePaged)
+					ld a,b
+					cp 83h
+					jr nz,HookChainer_Continue
+					pop bc
+				pop af
+			pop de
+		pop hl
+	ex (sp),hl
+	bcall(OP1 | (1 << 14))
+	ret
+
+HookChainer_Continue:
+					pop bc
+				pop af
+			pop de
+		pop hl
+	ex (sp),hl
+	ret
+
+;-----------------------------------
 Menu4_GraphModify_ShowAxes:
 	call Graph_Erase
 	ld a,(axismode)
@@ -1316,7 +737,8 @@ Menu4_GraphModify_ShowAxes:
 	xor a
 Menu4_GraphModify_ShowAxes_Save:
 	ld (axismode),a
-	jp Menu_4_Redraw
+	ret
+	;jp Menu_4_Redraw
 
 Menu4_GraphModify_GraphColor:
 	call Graph_Erase
@@ -1327,18 +749,21 @@ Menu4_GraphModify_GraphColor:
 	xor a
 Menu4_GraphModify_GraphColor_Save:
 	ld (colormode),a
-	jp Graph_Recolor
+	ret
+	;jp Graph_Recolor
 
 Menu4_GraphModify_ToggleAll:
 	;TODO
-	jp Menu_4_Redraw
+	ret
+	;jp Menu_4_Redraw
+
 Menu4_GraphModify_BGColor:
 	ld hl,(bgcolor)
 	ld a,h \ cpl \ ld h,a
 	ld a,l \ cpl \ ld l,a
 	ld (bgcolor),hl
-	call Clear_Screen
-	jp Menu_4_Redraw
+	ret
+	;jp Menu_4_Redraw
 ;============================================================
 Graph_Erase:
 	ld hl,(bgcolor)
@@ -1416,7 +841,7 @@ Graph_Render_FromOffsets_Inner:
 						pop bc
 					pop de
 				ld iy,(fgcolor)
-				call ColorLine_SwapOutIn
+				call ColorLine
 				pop hl
 			inc hl
 			pop bc
@@ -1498,7 +923,7 @@ Graph_Render_EQ_XMajor_Inner:
 							jr z,Graph_Render_EQ_XMajor_Inner_Go
 							ld iy,(bgcolor)
 Graph_Render_EQ_XMajor_Inner_Go:
-							call ColorLine_SwapOutIn
+							call ColorLine
 								
 							pop bc
 						dec b
@@ -1586,7 +1011,7 @@ Graph_Render_EQ_YMajor_Inner:
 				jr z,Graph_Render_EQ_YMajor_Inner_Go
 				ld iy,(bgcolor)
 Graph_Render_EQ_YMajor_Inner_Go:
-				call ColorLine_SwapOutIn
+				call ColorLine
 				pop bc
 			dec b
 			jp nz,Graph_Render_EQ_YMajor_Inner
@@ -1634,14 +1059,20 @@ Rotate_B_Points:
 		ld bc,(val_x)				;dx =  (val_x-cx)*costy*costz + (val_y-cy)*(costy*sintz) + (val_z-cz)*(sinty);
 		ld de,(costy)
 		call signed_multbcde_fp		;de.hl as d.e
-		ld bc,(costz)
+#ifndef GAMMA_ZERO
+		ld bc,(costz)				; Or if GAMMA_ZERO, gamma=0, costz = 1, null multiplication
 		call signed_multbcde_fp
+#endif
 		push de
+#ifdef GAMMA_ZERO
+			ld de,0					; gamma = 0, sintz = 0, whole middle term = 0
+#else
 			ld bc,(val_y)
 			ld de,(costy)
 			call signed_multbcde_fp
 			ld bc,(sintz)
 			call signed_multbcde_fp
+#endif
 			push de
 				ld bc,(val_z)
 				ld de,(sinty)
@@ -1662,6 +1093,7 @@ Rotate_B_Points:
 		ld (pgrid_x),hl
 		
 		ld bc,(val_x)				;-(val_x-cx)*(costx*sintz+costz*sintx*sinty) + (val_y-cy)*(costx*costz-sintx*sinty*sintz) + (val_z-cz)*costy*sintx;
+#ifndef GAMMA_ZERO
 		push bc
 			ld de,(costx)
 			call signed_multbcde_fp
@@ -1669,9 +1101,14 @@ Rotate_B_Points:
 			call signed_multbcde_fp
 			pop bc
 		push de
+#endif
+#ifdef GAMMA_ZERO
+			ld de,(sintx)			; Factor out the multiplication by costz = 1
+#else
 			ld de,(costz)
 			call signed_multbcde_fp
 			ld bc,(sintx)
+#endif
 			call signed_multbcde_fp
 			ld bc,(sinty)
 			call signed_multbcde_fp
@@ -1680,10 +1117,13 @@ Rotate_B_Points:
 				push bc
 					ld de,(costx)
 					call signed_multbcde_fp
+#ifndef GAMMA_ZERO
 					ld bc,(costz)
 					call signed_multbcde_fp
+#endif
 					pop bc
 				push de
+#ifndef GAMMA_ZERO
 					ld de,(sintx)
 					call signed_multbcde_fp
 					ld bc,(sinty)
@@ -1691,19 +1131,27 @@ Rotate_B_Points:
 					ld bc,(sintz)
 					call signed_multbcde_fp
 					push de
+#endif
 						ld bc,(val_z)
 						ld de,(costy)
 						call signed_multbcde_fp
 						ld bc,(sintx)
 						call signed_multbcde_fp
+#ifndef GAMMA_ZERO
 						pop hl
-					call addhlde_fp
+					ex de,hl
+					call subhlde_fp					;(val_y-cy)*(-sintx*sinty*sintz) + (val_z-cz)*costy*sintx;
 					pop de
+#else
+					pop hl
+#endif
 				call addhlde_fp
 				pop de
 			call subhlde_fp
+#ifndef GAMMA_ZERO
 			pop de
-		call subhlde_fp
+		call subhlde_fp				; Handles the -(val_x-cx)*(costx*sintz) term
+#endif
 		ld de,(cy)
 		call addhlde_fp
 		; Store the new y val
@@ -1716,6 +1164,7 @@ Rotate_B_Points:
 		ld (pgrid_y),hl
 
 		ld bc,(val_x)				;(val_x-cx)*(sintx*sintz-costx*costz*sinty) - (val_y-cy)*(costz*sintx+costx*sinty*sintz) + (val_z-cz)*costx*costy;
+#ifndef GAMMA_ZERO
 		push bc
 			ld de,(sintx)
 			call signed_multbcde_fp
@@ -1723,21 +1172,29 @@ Rotate_B_Points:
 			call signed_multbcde_fp
 			pop bc
 		push de
+#endif
 			ld de,(costx)
 			call signed_multbcde_fp
+#ifndef GAMMA_ZERO
 			ld bc,(costz)
 			call signed_multbcde_fp
+#endif
 			ld bc,(sinty)
 			call signed_multbcde_fp
 			push de
 				ld bc,(val_y)
 				push bc
+#ifdef GAMMA_ZERO
+					ld de,(sintx)
+#else
 					ld de,(costz)
 					call signed_multbcde_fp
 					ld bc,(sintx)
+#endif
 					call signed_multbcde_fp
 					pop bc
 				push de
+#ifndef GAMMA_ZERO
 					ld de,(costx)
 					call signed_multbcde_fp
 					ld bc,(sinty)
@@ -1745,20 +1202,28 @@ Rotate_B_Points:
 					ld bc,(sintz)
 					call signed_multbcde_fp
 					push de
+#endif
 						ld bc,(val_z)
 						ld de,(costx)
 						call signed_multbcde_fp
 						ld bc,(costy)
 						call signed_multbcde_fp
+#ifndef GAMMA_ZERO
 						pop hl
 					ex de,hl
 					call subhlde_fp
 					pop de
+#else
+					pop hl
+				ex de,hl
+#endif
 				call subhlde_fp
 				pop de
 			call subhlde_fp
+#ifndef GAMMA_ZERO
 			pop de
 		call addhlde_fp
+#endif
 		ld de,(cz)
 		call addhlde_fp
 		; Store the new y val
@@ -1823,7 +1288,7 @@ Map_B_Points:
 		push bc
 			ld de,(val_x)
 			call signed_multbcde_fp
-			ld hl,(0.5*(5/4))*INT_TO_8P8		;256*[0.625+(dx-ex)/((5/4)*ez/dz)] = 256*(5/4)*[0.5+(dx-ex)/(ez/dz)] 
+			ld hl,(MapFactorX)					;256*[0.625+(dx-ex)/((5/4)*ez/dz)] = 256*(5/4)*[0.5+(dx-ex)/(ez/dz)] 
 			call addhlde_fp						; = 320*[0.5+(dx-ex)/(ez/dz)]
 			;de*256 is the int, so just take d.e and put it diretly in (sx)
 			ld (sx),hl
@@ -1835,7 +1300,7 @@ Map_B_Points:
 		ex de,hl
 		sla e
 		rl d									;double de
-		ld bc,120
+		ld bc,(MapFactorY)						;120 because 240.
 		call signed_multbcde_fp
 		ld (sy),de								;d is the upper byte (int is in the bottom byte)
 		jr Graph_Map_EQ_Inner_StoreReloop
@@ -1869,6 +1334,8 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "ltstore.asm"
 #include "winhook.asm"
 #include "yequhook.asm"
+#include "menuhook.asm"
+#include "graphhook.asm"
 #include "bigicon.inc"
 
 ;------------------------------------------------------------------------------- SPRITES
@@ -2037,12 +1504,12 @@ winMenu_sStepsY:	.db "Ysteps",0
 winMenu_sZoomFact:	.db "ZoomFact",0
 
 Window_Field_Table:
-	.dw min_x
-	.dw max_x
-	.dw dim_x
-	.dw min_y
-	.dw max_y
-	.dw dim_y
+	.db SETTINGS_AVOFF_MINX
+	.db SETTINGS_AVOFF_MAXX
+	.db SETTINGS_AVOFF_XDIM
+	.db SETTINGS_AVOFF_MINY
+	.db SETTINGS_AVOFF_MAXY
+	.db SETTINGS_AVOFF_YDIM
 	
 AppIcon:
 	.db 2									;Icon type: 16x16, 4-bit color

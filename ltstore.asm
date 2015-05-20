@@ -45,12 +45,22 @@ LTS_CreateAV:
 	inc de
 	inc de
 	
-	ex de,hl
+	ld (lts_av),de
+	push de
+		; Clear contents
+		ld h,d
+		ld l,e
+		ld (hl),0
+		inc de
+		ld bc,SETTINGS_AV_SIZE-1				; Zero out the AppVar
+		ldir
+		pop hl
+
 	; Load defaults
 	xor a
 	ld (hl),a				; Offset 0: 	Mode = 0
 	inc hl
-	ld (hl),a				; Offset 1:		Axis Mode = 0
+	ld (hl),AXIS_MODE_A		; Offset 1:		Axis Mode = 0
 	inc hl
 	ld (hl),a
 	inc hl
@@ -58,48 +68,9 @@ LTS_CreateAV:
 	inc hl
 	ld (hl),a				; Offset 4:		Color mode = 0
 	inc hl
-	ld a,DEFAULT_XY_RES
-	ld (hl),a				; Offset 5:		DimX = maximum possible
-	inc hl
-	ld (hl),a				; Offset 6:		DimY = maximum possible
-	inc hl
-	ld de,1.00*INT_TO_8P8
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 7:		ScaleFactor = 1
-	inc hl
-	ld de,0.75*INT_TO_8P8
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 9:		ZoomFactor = 0.75
-	inc hl
-	ld de,DEFAULT_XY_MIN
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 11:	MinX = default
-	inc hl
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 13:	MinY = default
-	inc hl
-	ld de,DEFAULT_XY_MAX
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 15:	MaxX = default
-	inc hl
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 17:	MaxY = default
-	inc hl
-
-	ld (hl),0
-	ld d,h
-	ld e,l
-	inc de
-	ld bc,29-1				; Offsets 19-44: hook backups and mon vec backups
-	ldir
-
-	jr LTS_CacheAV
 	
+	call ZoomStandard3D
+	jr LTS_CacheAV
+
 AVName:
 	.db AppVarObj,"G3DCS",0

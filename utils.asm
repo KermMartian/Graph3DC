@@ -20,6 +20,12 @@ CopyContainCoords:
 	ret
 ;============================================================
 TrashRAM_SwapIn:
+	di
+	in a,($27)
+	ld (high_bank_mask),a
+	ld a,(16384 - trash_ram_fill)/64
+	out ($27),a
+
 	in a,(5)
 	ld (high_bank_page),a
 	ld a,TRASHABLE_RAM_PAGE | $80			;RAM page to trash with a buffer
@@ -29,9 +35,11 @@ TrashRAM_SwapIn:
 TrashRAM_SwapOut:
 	ld a,(high_bank_page)		;Don't need to worry about port $D/E/F because
 	out (5),a					;$C000-$FFFF can only hold RAM pages
+	ld a,(high_bank_mask)
+	out ($27),a
+	ei
 	ret
 
-ColorLine_SwapOutIn:
 ColorLine:
 	; de = x0, bc = y0, hl = x1, ix = y1, iy = colour
 	;
@@ -40,6 +48,53 @@ ColorLine:
 	ld (xyinc+0),a
 	ld (xyinc+1),a                          ; x/y inc
 	ld (xstart),de                          ; de = x0, hl = x1
+	
+	; Check for fully-offscreen lines: X or Y are both < pxlMinY, or X or Y are both > 320/240.
+	ld a,h
+	and d
+	bit 7,a
+	ret nz					; h and d are both negative
+	; Since we know hl and de are positive, we can add them.
+	push hl
+		push de
+			add hl,de
+			ld de,320*2
+			or a
+			sbc hl,de
+			pop de
+		pop hl
+	ret nc					; h and d both >= 320
+	; Check if ys are both offscreen
+	push de
+		push hl
+			ld de,(PxlMinY)
+			ld h,b
+			ld l,c
+			or a
+			sbc hl,de		; hl = bc - (PxlMinY)
+			ld a,h
+			push ix
+				pop hl
+			or a
+			sbc hl,de		; hl = ix - (PxlMinY)				
+			and h
+			bit 7,a
+			pop hl
+		pop de
+	ret nz
+	push de
+		push hl
+			push ix
+				pop de
+			add hl,de
+			ld de,240*2
+			or a
+			sbc hl,de
+			pop hl
+		pop de
+	ret nc
+
+	; Figure out the increments
 	ld a,h
 	xor $80
 	ld h,a
@@ -72,7 +127,7 @@ ColorLine:
 	sbc hl,bc
 	ld c,l
 	ld b,h                                  ; bc = (y1 - y0)
-	jr nc,$+13
+	jr nc,{@}
 	ld a,-1
 	ld (xyinc+1),a                                  ; y inc
 	xor a
@@ -81,7 +136,7 @@ ColorLine:
 	sbc a,a
 	sub b
 	ld b,a                                  ; bc = -(y1 - y0)
-	ld l,e
+@:	ld l,e
 	ld h,d
 	push bc
 		ld a,h
@@ -196,9 +251,14 @@ ColorPixel:
 	; needs re-writing
 	;
 	bit 7,h
-	ret nz                                                                  ; return if negative
-	bit 7,d
-	ret nz                                                                  ; return if negative
+	ret nz
+	ex de,hl
+	ld bc,(pxlMinY)
+	or a
+	sbc hl,bc
+	add hl,bc
+	ex de,hl
+	ret c
 	ld bc,320
 	or a
 	sbc hl,bc
@@ -280,32 +340,6 @@ Write_Display_Control:
 	ret
 	
 ;############## Clear the screen (in black, of course!)
-Clear_Screen:	
-	call	Full_Window
-	
-	ld	a,$20
-	ld	hl,0		; set write Y coordinate
-	call	Write_Display_Control
-	ld	a,$21		; set write X coordinate
-	call	Write_Display_Control
-	
-	ld	a,$22
-	out	($10),a
-	out	($10),a
-
-	ld	de,320*240*2/4
-	ld  hl,(bgcolor)
-	ld c,$11
-blank_loop:
-	out	(c),h
-	out	(c),l
-	out	(c),h
-	out	(c),l
-	dec	de
-	ld	a,d
-	or	e
-	jr	nz,blank_loop
-	ret
 
 PutsColored:
 	call SetTextColors
@@ -880,6 +914,7 @@ VPutSApp:				;display text in small font
 		pop hl
 	jr VPutSApp
 	
+;--------------------------------------------------
 ResetColors:
 	ld de,COLOR_BLACK
 	ld bc,COLOR_WHITE
@@ -889,3 +924,19 @@ SetTextColors:
 	ld (drawFGColor),de
 	ld (textFGColor),de
 	ret
+
+;--------------------------------------------------
+SetSpeedFast:
+	push af
+		set fastSpeed,(iy+speedFlags)
+		ld a,1
+		jr SetSpeed
+SetSpeedSlow:
+	push af
+		res fastSpeed,(iy+speedFlags)
+		xor a
+SetSpeed:
+		out (20h), a
+		pop af
+	ret
+;--------------------------------------------------
