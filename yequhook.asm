@@ -69,8 +69,9 @@ YEquHook_Partial_PlotLineLoop_DoDisplay:
 	ld a,4
 	cp b
 	jr nz,YEquHook_Partial_PlotLineLoop
-	call ResetColors	
-	jr YEquHook_ResZRet
+	call ResetColors
+	or 1				; Reset Z flag
+	ret
 
 YEquHook_Partial_Not3:
 	cp 4								;Entering Plot area
@@ -124,6 +125,41 @@ DisplayAppTitleText:
 yEquHook_Not0:
 	sub 2
 	jr nz,yEquHook_Not2
+	
+	; Set up position
+	ld a,(curcol)
+	push af
+		ld l,a
+		ld h,0
+		add hl,hl
+		add hl,hl			; *4
+		ld e,l
+		ld d,h
+		add hl,de			; *8
+		add hl,de			; *12
+		inc hl
+		inc hl
+		ex de,hl
+		ld a,(currow)
+		ld l,a
+		ld h,0
+		add hl,hl
+		add hl,hl
+		ld c,l
+		ld b,h
+		add hl,hl
+		add hl,hl
+		add hl,bc
+		ld bc,38
+		add hl,bc
+		; hl = y, de = x
+		ld ix,gridicon_spectrum
+		call DrawSprite_4Bit
+		call DisplayOrg
+		pop af
+	inc a
+	inc a
+	ld (curcol),a
 YEquHook_ResZRet:
 	or 1
 	ret
@@ -142,7 +178,8 @@ yEquHook_Not2:
 
 yEquHook_Not3:
 	dec a
-	jr z,YEquHook_SpecialPlotLine_Setup
+	jp z,YEquHook_SpecialPlotLine_Setup
+
 yEquHook_Not4:
 	cp a
 	ret
