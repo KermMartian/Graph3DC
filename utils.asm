@@ -40,6 +40,12 @@ TrashRAM_SwapOut:
 	ei
 	ret
 
+ColorLine_RetPopBCDEHL:
+				pop bc
+			pop de
+		pop hl
+	ret
+
 ColorLine:
 	; de = x0, bc = y0, hl = x1, ix = y1, iy = colour
 	;
@@ -52,47 +58,49 @@ ColorLine:
 	; Check for fully-offscreen lines: X or Y are both < pxlMinY, or X or Y are both > 320/240.
 	ld a,h
 	and d
-	bit 7,a
+	and $80					;bit 7,a
 	ret nz					; h and d are both negative
 	; Since we know hl and de are positive, we can add them.
 	push hl
 		push de
-			add hl,de
-			ld de,320*2
-			or a
-			sbc hl,de
+			push bc
+				ld bc,320
+				or a
+				sbc hl,bc
+				jr c,ColorLine_NotOffscreenX
+				ex de,hl
+				sbc hl,bc
+				jr nc,ColorLine_RetPopBCDEHL
+ColorLine_NotOffscreenX:
+				pop hl
+				; Check if ys are both offscreen
+			push hl
+				push ix
+					pop de
+				ld bc,240
+				or a
+				sbc hl,bc
+				add hl,bc
+				jr c,ColorLine_NotOffBottomY
+				ex de,hl
+				sbc hl,bc
+				add hl,bc
+				jr nc,ColorLine_RetPopBCDEHL
+
+ColorLine_NotOffBottomY:
+				ld bc,(PxlMinY)
+				or a
+				sbc hl,bc
+				ex de,hl
+				or a
+				sbc hl,bc
+				ld a,h
+				and d
+				and $80					;bit 7,a
+				pop bc
 			pop de
 		pop hl
-	ret nc					; h and d both >= 320
-	; Check if ys are both offscreen
-	push de
-		push hl
-			ld de,(PxlMinY)
-			ld h,b
-			ld l,c
-			or a
-			sbc hl,de		; hl = bc - (PxlMinY)
-			ld a,h
-			push ix
-				pop hl
-			or a
-			sbc hl,de		; hl = ix - (PxlMinY)				
-			and h
-			bit 7,a
-			pop hl
-		pop de
 	ret nz
-	push de
-		push hl
-			push ix
-				pop de
-			add hl,de
-			ld de,240*2
-			or a
-			sbc hl,de
-			pop hl
-		pop de
-	ret nc
 
 	; Figure out the increments
 	ld a,h
