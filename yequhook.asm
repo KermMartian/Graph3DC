@@ -213,6 +213,18 @@ yEquHook_Not5:
 	dec a
 	jr nz,yEquHook_Not6
 	ld a,b
+	cp kUp
+	jr nz,yEquHook_5_NotUp
+	ld a,(EQS + 7)
+	cp tZ1
+	jr nz,yEquHook_Allow
+	ld hl,(editCursor)
+	ld de,(editTop)
+	or a
+	sbc hl,de
+	jr nz,yEquHook_Allow
+	jp YEquHook_SpecialPlotLine_Setup		; Go into Plot1...3 line
+yEquHook_5_NotUp:
 	cp kLeft
 	jr nz,yEquHook_Allow
 	ld a,(curcol)				; Are we to the right of the =?
