@@ -967,6 +967,20 @@ InitZEquations_Loop_Exists:
 	djnz InitZEquations_Loop
 	ret
 ;--------------------------------------------------
+CheckEnabledA:
+	push af
+		ld hl,BaseZVarName
+		rst 20h
+		pop af
+	ld (OP1+2),a
+	rst 10h
+	jr c,CheckEnabledA_Disabled
+	bit 5,(hl)
+	ret
+CheckEnabledA_Disabled:
+	cp a
+	ret
+;--------------------------------------------------
 SetFunctionMode:
 	; Set Function mode - can only touch a!
 	ld a,(iy+grfModeFlags)

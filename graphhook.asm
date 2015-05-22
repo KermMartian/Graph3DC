@@ -2,6 +2,11 @@ GraphHook:
 	.db $83
 	; Don't chain the graph hook here.  That would be silly.
 	; It's only enabled if we're in 3D mode, anyway.
+	push af
+		push bc
+			call LTS_CacheAV
+			pop bc
+		pop af
 	or a
 	jr nz,GraphHook_Not0
 	call Graph_Setup
@@ -68,7 +73,6 @@ KeyHook_Graph_Rerotate:
 Graph_Setup:
 	; Basic setup stuff
 	call SetSpeedFast
-	call LTS_CacheAV
 
 	; Load graph constants
 	ld a,SETTINGS_AVOFF_XDIM
@@ -229,10 +233,26 @@ Graph_Recolor:
 	; Figure out which equations are enabled
 #ifdef DEBUG_GRAPH
 	ld a,1
-	ld (counteqs),a
 #else
-	.error "Don't know how to count equations yet!"
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
+	ld a,tZ1
+	ld c,0
+Graph_CountEQs_Loop:
+	push af
+		push bc
+			call CheckEnabledA
+			pop bc
+		jr z,Graph_CountEQs_Loop_NotEnabled
+		inc c
+Graph_CountEQs_Loop_NotEnabled:
+		pop af
+	inc a
+	djnz Graph_CountEQs_Loop
+	ld a,c
 #endif
+	ld (counteqs),a
 
 	.warn "Need to draw an hourglass or progress bar"
 
@@ -240,7 +260,9 @@ Graph_Recolor:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld b,MAX_EQS
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
 #endif
 
 	; Initialize pointers into big stored data chunks
@@ -302,7 +324,7 @@ Graph_Compute_EQ_Inner:
 			ld (pgrid_x),hl
 
 			; Compute output value
-#ifdef DEBUG_GRAPH
+#ifndef DEBUG_GRAPH
 			;ld hl,0
 			ld hl,(val_x)
 			ld de,(val_y)
@@ -315,7 +337,7 @@ Graph_Compute_EQ_Inner:
 			call signed_multbcde_fp
 			ex de,hl
 #else
-			.error "Need to actually compute something here!"
+			.fail "Need to actually compute something here!"
 			; To fit into the constraints of our fixed-point numbers, we
 			; need to pre-scale X and Y, feed to our equation and get Z,
 			; then post-un-scale Z. Keeping our FP numbers within the bounds
@@ -422,7 +444,9 @@ Graph_Compute_EQ_Inner:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld b,MAX_EQS
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
 #endif
 
 	ld hl,grid_z
@@ -748,7 +772,9 @@ Graph_Rerotate:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld b,MAX_EQS
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
 #endif
 
 Graph_Rotate_EQ:
@@ -815,7 +841,9 @@ Graph_Redraw:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld b,MAX_EQS
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
 #endif
 
 Graph_Map_EQ:

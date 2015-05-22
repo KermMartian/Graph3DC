@@ -223,6 +223,7 @@ yEquHook_Not5:
 	or a
 	sbc hl,de
 	jr nz,yEquHook_Allow
+	bcall(_CloseEditEqu)
 	jp YEquHook_SpecialPlotLine_Setup		; Go into Plot1...3 line
 yEquHook_5_NotUp:
 	cp kLeft

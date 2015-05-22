@@ -1,6 +1,7 @@
 windowHook:
 	.db $83
 	call SetSpeedFast
+	cp a							;Set z flag
 	push hl
 		ld hl,SETTINGS_HOOKBACK_WIN
 		call HookChainer

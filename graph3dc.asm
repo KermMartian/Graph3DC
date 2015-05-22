@@ -27,8 +27,8 @@ NUM_PAGES = 1
 .defpage 0, 16*1024, $4000          ; Page 0 definition
 
 ; Assembly-time flags
-#define DEBUG_EQ
-#define DEBUG_GRAPH
+;#define DEBUG_EQ
+;#define DEBUG_GRAPH
 #define GAMMA_ZERO					; Gamma is always zero in rotation
 
 myflag .equ asm_flag1
@@ -182,6 +182,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_HOOKBACK_MENU	48				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_GRPH	52				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_KEY	56				;4 bytes  - KeyHook backup
+#define SETTINGS_MAXEQS			60				;1 byte
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
@@ -201,7 +202,7 @@ trash_ram_end	.equ	axes_z + (2*20)		;dialogCBRAM + 16		; 16 bytes for (windowMen
 trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
 .echo "Trash RAM page has ", trash_ram_fill, "/16384 bytes allocated\n"
 .if trash_ram_fill > ($4000-$200)
-.error "Trash RAM page has overflowed!
+.fail "Trash RAM page has overflowed!
 .endif
 
 ; As suggested by MicrOS. This restricts how much
@@ -872,7 +873,9 @@ Graph_Render:
 #ifdef DEBUG_GRAPH
 		ld b,1
 #else
-		ld b,MAX_EQS
+		ld a,SETTINGS_MAXEQS
+		call LTS_GetByte
+		ld b,a
 #endif
 
 Graph_Render_EQ:

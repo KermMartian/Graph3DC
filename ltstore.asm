@@ -77,7 +77,9 @@ LTS_CreateAV:
 	ld (hl),a				; Offset 2:		BGColor = $0000
 	inc hl
 	ld (hl),a				; Offset 4:		Color mode = 0
-	inc hl
+	ld de,SETTINGS_MAXEQS - SETTINGS_AVOFF_COLOR
+	add hl,de
+	ld (hl),MAX_EQS
 	
 	call ZoomStandard3D
 
