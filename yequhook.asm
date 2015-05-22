@@ -106,7 +106,7 @@ YEquHook_SetZRet:
 	ret
 
 YEquHook_Full:
-		ld a,0 + (tZ1 + (MAX_EQS - 1))
+		ld a,$0f & (tZ1 + MAX_EQS)
 		ld (EQS + 6),a
 
 		pop af
@@ -182,6 +182,7 @@ yEquHook_Not3:
 yEquHook_Not4:
 	dec a
 	jr nz,yEquHook_Not5
+#ifdef false
 	ld hl,BaseZVarName
 	rst 20h
 	ld a,(EQS + 7)							; Currently-edited equation
@@ -189,7 +190,6 @@ yEquHook_Not4:
 	add a,SETTINGS_ZEQUENABLED-tZ1
 	call LTS_GetPtr
 	push hl
-		rst 20h
 		rst 10h
 		pop hl
 	ret c
@@ -201,10 +201,12 @@ yEquHook_Not4:
 	ex de,hl
 	jr z,yEquHook_3_Set
 	ld a,(hl)
-	xor 1
+	xor $ff
 yEquHook_3_Set:
 	ld (hl),a
-	or $ff									; Don't do the toggle
+	ld c,a
+#endif
+	cp a									; -D-o-n-'-t- do the toggle
 	ret
 
 yEquHook_Not5:
@@ -223,36 +225,15 @@ yEquHook_Not6:
 	sub 2
 	jr nz,yEquHook_Not8
 
-#ifdef false
-	; Try to map into Z1-Z6
-	ld a,(EQS + 7)
-	cp tZ1
-	jr nc,yEquHook_Not8_NoSetEquBounds
-	add a,tZ1-tY1
-	call SetEQSOP1
-yEquHook_Not8_NoSetEquBounds:
-#endif
-
-	ld hl,CurCol
-	ld (hl),1
-	ld a,'Z'
-	bcall(_PutC)
-	ld a,(EQS + 7)
-	add a,$81-tZ1
-	bcall(_PutC)
-	ld a,(iy+textFlags)
-	and $ff^(1 << textInverse)
-	ld b,a
-	ld a,(EQS + 7)							; Currently-edited equation
-	ld (OP1 + 2),a
-	add a,SETTINGS_ZEQUENABLED-tZ1
-	call LTS_GetPtr
-	ld a,(hl)
-	and 1
-	sla a
-	sla a
-	or b
-	ld (iy+textFlags),a
+	push hl
+		ld hl,CurCol
+		ld (hl),1
+		ld a,'Z'
+		bcall(_PutC)
+		ld a,(EQS + 7)
+		add a,$81-tZ1
+		bcall(_PutC)
+		pop hl
 	cp a
 	ret
 

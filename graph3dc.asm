@@ -128,8 +128,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define OUT_BOTTOM 8
 #define INT_TO_8P8	256
 #define TRASHABLE_RAM_PAGE 6							;0-7
-#define MAX_XY_RES 17
-#define MAX_EQS 6
+#define MAX_XY_RES 18
+#define MAX_EQS 5
 #define MAX_COLOR_MODES 3
 #define MAX_AXIS_MODES 4
 #define AXES_BOUND_COORDS 20
@@ -182,7 +182,6 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_HOOKBACK_MENU	48				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_GRPH	52				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_KEY	56				;4 bytes  - KeyHook backup
-#define SETTINGS_ZEQUENABLED	60				;MAX_EQS bytes - which functions are enabled
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
@@ -244,7 +243,7 @@ mZoom3D			.equ	94h
 fastSpeed		.equ	5
 speedFlags		.equ	24h
 _GetBytePaged	.equ	_LoadBIndPaged
-tZ1				.equ	twn+1
+tZ1				.equ	tY0+1
 .list
 
 ;-----------------------------------
