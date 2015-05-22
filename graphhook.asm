@@ -46,9 +46,7 @@ GraphKeyHook:
 	ret
 	;jp Menu_4_Redraw
 KeyHook_Graph_RetQuit:
-	ld b,kQuit
-	cp a
-	ret
+	bjump(_JForceCmdNoChar)
 KeyHook_Graph_StoreAlpha:
 	ld (alpha),de
 	jr KeyHook_Graph_Rerotate

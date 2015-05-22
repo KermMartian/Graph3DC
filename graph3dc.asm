@@ -9,6 +9,7 @@
 ; [ ] Implement proper variable input at Y= menu
 ; [ ] Add graph styles on Y= menu and proper storage
 ; [ ] Test interaction between Transform and G3DC in all menus
+; [ ] Add high-resolution, 2-equation (?) mode
 ; [ ] Lots of beta-testing!
 .echo "-----------------------\n"
 
@@ -181,6 +182,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_HOOKBACK_MENU	48				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_GRPH	52				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_KEY	56				;4 bytes  - KeyHook backup
+#define SETTINGS_ZEQUENABLED	60				;MAX_EQS bytes - which functions are enabled
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
@@ -242,6 +244,7 @@ mZoom3D			.equ	94h
 fastSpeed		.equ	5
 speedFlags		.equ	24h
 _GetBytePaged	.equ	_LoadBIndPaged
+tZ1				.equ	twn+1
 .list
 
 ;-----------------------------------
@@ -482,6 +485,8 @@ ProgramStart_Uninstall:
 	jr ProgramStart_Quit
 
 ProgramStart_Install:
+	call InitZEquations
+
 	; Set up the appChangeHook
 	res 1,(iy+$3A)							;?????
 	call GetCurrentPage
@@ -551,6 +556,7 @@ appChangeHook_Invalid:
 				jr appChangeHook_Done
 
 appChangeHook_CheckWindow:
+				call SetFunctionMode						; Needs to only touch a!
 				ld a,c
 				cp kWindow
 				jr nz,appChangeHook_CheckGraph

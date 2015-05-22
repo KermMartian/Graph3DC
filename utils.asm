@@ -948,3 +948,29 @@ SetSpeed:
 		pop af
 	ret
 ;--------------------------------------------------
+InitZEquations:
+	ld b,MAX_EQS
+InitZEquations_Loop:
+	push bc
+		ld hl,BaseZVarName
+		rst 20h
+		pop af
+	push af
+		add a,tZ1-1			;-1 because b goes from 6 to 1, not 5 to 0
+		ld (OP1+2),a
+		rst 10h
+		jr nc,InitZEquations_Loop_Exists
+		ld hl,0
+		bcall(_CreateEqu)
+InitZEquations_Loop_Exists:
+		pop bc
+	djnz InitZEquations_Loop
+	ret
+;--------------------------------------------------
+SetFunctionMode:
+	; Set Function mode - can only touch a!
+	ld a,(iy+grfModeFlags)
+	and $ff^((1 << grfPolarM) | (1 << grfParamM) | (1 << grfRecurM))
+	or 0+(1 << grfFuncM)
+	ld (iy+grfModeFlags),a
+	ret

@@ -7,7 +7,7 @@ YEquHook:
 		push bc
 			push hl
 				push de
-					call LTS_CacheAV
+					call LTS_CacheAV		; Our AV is cached for the entire hook duration now
 					ld a,SETTINGS_AVOFF_MODE
 					call LTS_GetByte
 					pop de
@@ -19,6 +19,7 @@ YEquHook_Partial:
 		pop af
 	cp 3
 	jr nz,YEquHook_Partial_Not3
+
 	ld hl,AppTitleOff
 	call DisplayAppTitleText
 	call ClearPlotLine
@@ -99,14 +100,27 @@ YEquHook_SpecialPlotLine_Setup:
 	ld hl,yEquCursorHook
 	bcall(_SetCursorHook)
 	jr YEquHook_ResZRet
+
 YEquHook_SetZRet:
 	cp a
 	ret
 
 YEquHook_Full:
+		ld a,0 + (tZ1 + (MAX_EQS - 1))
+		ld (EQS + 6),a
+
 		pop af
 	or a
 	jr nz,yEquHook_Not0
+
+	call InitZEquations
+	call DisplayAppTitle
+	ld hl,BaseZVarName
+	ld de,parseVar
+	ld bc,3
+	ldir
+	jr YEquHook_SetZRet
+
 DisplayAppTitle:
 	ld hl,AppTitle
 DisplayAppTitleText:
@@ -121,45 +135,20 @@ DisplayAppTitleText:
 	ld bc,$52aa
 	call VPutsColored
 	call ResetColors
-	jr YEquHook_SetZRet
+	ret
+
 yEquHook_Not0:
-	sub 2
+	dec a
+	jr nz,yEquHook_Not1
+	or a					; Reset z flag: not allowed to go to style icons (1 | 1 => z reset)
+	ret
+
+yEquHook_Not1:
+	dec a
 	jr nz,yEquHook_Not2
-	
-	; Set up position
-	ld a,(curcol)
-	push af
-		ld l,a
-		ld h,0
-		add hl,hl
-		add hl,hl			; *4
-		ld e,l
-		ld d,h
-		add hl,de			; *8
-		add hl,de			; *12
-		inc hl
-		inc hl
-		ex de,hl
-		ld a,(currow)
-		ld l,a
-		ld h,0
-		add hl,hl
-		add hl,hl
-		ld c,l
-		ld b,h
-		add hl,hl
-		add hl,hl
-		add hl,bc
-		ld bc,38
-		add hl,bc
-		; hl = y, de = x
-		ld ix,gridicon_spectrum
-		call DrawSprite_4Bit
-		call DisplayOrg
-		pop af
-	inc a
-	inc a
-	ld (curcol),a
+
+	ld a,$E9
+	bcall(_PutC)
 YEquHook_ResZRet:
 	or 1
 	ret
@@ -173,6 +162,16 @@ yEquHook_Not2:
 	ld de,36
 	ld (penrow),de
 	call vputsapp
+
+	; Set max equations
+	ld a,(EQS + 7)
+	cp tZ1
+	jr nc,yEquHook_3_NoEqSetup
+	ld a,tZ1
+	ld (EQS + 7),a
+	ld (OP1 + 2),a
+yEquHook_3_NoEqSetup:
+
 	cp $ff
 	ret
 
@@ -181,24 +180,106 @@ yEquHook_Not3:
 	jp z,YEquHook_SpecialPlotLine_Setup
 
 yEquHook_Not4:
+	dec a
+	jr nz,yEquHook_Not5
+	ld hl,BaseZVarName
+	rst 20h
+	ld a,(EQS + 7)							; Currently-edited equation
+	ld (OP1 + 2),a
+	add a,SETTINGS_ZEQUENABLED-tZ1
+	call LTS_GetPtr
+	push hl
+		rst 20h
+		rst 10h
+		pop hl
+	ret c
+	ex de,hl
+	ld a,(hl)
+	inc hl
+	or (hl)
+	ld a,0
+	ex de,hl
+	jr z,yEquHook_3_Set
+	ld a,(hl)
+	xor 1
+yEquHook_3_Set:
+	ld (hl),a
+	or $ff									; Don't do the toggle
+	ret
+
+yEquHook_Not5:
+	dec a
+	jr nz,yEquHook_Not6
+	ld a,b
+	cp kLeft
+	jr nz,yEquHook_Allow
+	ld a,(curcol)				; Are we to the right of the =?
+	cp 4
+	jr nc,yEquHook_Allow
+	or $ff						; Don't let us go into the style area
+	ret
+
+yEquHook_Not6:
+	sub 2
+	jr nz,yEquHook_Not8
+
+#ifdef false
+	; Try to map into Z1-Z6
+	ld a,(EQS + 7)
+	cp tZ1
+	jr nc,yEquHook_Not8_NoSetEquBounds
+	add a,tZ1-tY1
+	call SetEQSOP1
+yEquHook_Not8_NoSetEquBounds:
+#endif
+
+	ld hl,CurCol
+	ld (hl),1
+	ld a,'Z'
+	bcall(_PutC)
+	ld a,(EQS + 7)
+	add a,$81-tZ1
+	bcall(_PutC)
+	ld a,(iy+textFlags)
+	and $ff^(1 << textInverse)
+	ld b,a
+	ld a,(EQS + 7)							; Currently-edited equation
+	ld (OP1 + 2),a
+	add a,SETTINGS_ZEQUENABLED-tZ1
+	call LTS_GetPtr
+	ld a,(hl)
+	and 1
+	sla a
+	sla a
+	or b
+	ld (iy+textFlags),a
+	cp a
+	ret
+
+yEquHook_Not8:
+yEquHook_Allow:
 	cp a
 	ret
 
 ;--------------------------------------------
 ClearPlotLine:
-	xor a
-	ld (CurCol),a
-	ld (CurRow),a
-	ld de,COLOR_WHITE
-	ld (textFGcolor),de
-	ld (textBGcolor),de
-	ld b,26
+	ld hl,(CurRow)
+	push hl
+		xor a
+		ld (CurCol),a
+		ld (CurRow),a
+		ld de,COLOR_WHITE
+		ld (textFGcolor),de
+		ld (textBGcolor),de
+		ld b,26
 ClearPlotLine_Loop:
-	ld a,' '
-	push bc
-		bcall(_putc)
-		pop bc
-	djnz ClearPlotLine_Loop
+		ld a,' '
+		push bc
+			bcall(_putc)
+			pop bc
+		djnz ClearPlotLine_Loop
+		pop hl
+	ld (CurRow),hl
 	ret
 ;--------------------------------------------
 cxMain_PlotLine:
@@ -227,6 +308,9 @@ cxMain_PlotLine_NotRight:
 	ret z
 	dec a
 	jr cxMain_PlotLine_StoreMenuCurCol
+
+cxMain_PlotLine_Mode1:
+		pop af
 cxMain_PlotLine_NotLeft:
 	cp kDown
 	jr nz,cxMain_PlotLine_NotDown
@@ -236,9 +320,8 @@ cxMain_PlotLine_RestoreApp:
 	bjump(_maybe_MonRestart)
 	;bjump(_Mon)
 
-cxMain_PlotLine_Mode1:
-		pop af
 cxMain_PlotLine_NotDown:
+	jr z,cxMain_PlotLine_NotDown
 	cp kAlphaEnter
 	jr z,cxMain_PlotLine_Enter
 	cp kEnter
@@ -281,6 +364,7 @@ cxMain_PlotLine_3DMode:
 		call LTS_GetPtr
 		pop af
 	ld (hl),a
+	call SetFunctionMode
 	jr cxMain_PlotLine_RestoreApp
 cxMain_PlotLine_NotEnter:
 	cp kClear
