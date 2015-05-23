@@ -3,17 +3,19 @@
 ; http://www.cemetech.net
 
 ; TODO: 
-; [ ] Detect entirely-offscreen lines and do not draw
+; [/] Detect entirely-offscreen lines and do not draw
 ; [ ] Implement better line-cropping as in Graph3DP?
 ; [ ] Implement Format menu
 ; [X] Implement proper variable input at Y= menu
 ; [ ] Add tip for equation entry in Y= menu
-; [ ] Add progress bar and text while computing graph
-; [ ] Add graph styles on Y= menu and proper storage
+; [X] Add progress bar and text while computing graph
+; [-] Add graph styles on Y= menu and proper storage
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Add high-resolution, 2-equation mode
 ; [ ] Lots of beta-testing!
 ; [ ] Fix bug when Z= equation entry expands to second line
+; [ ] Handle errors in ParseInp
+; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
 
 .echo "-----------------------\n"
 
@@ -123,7 +125,10 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var byte, counteqs
 .var byte, erase_mode
 .var word, lts_av
-.var byte[MAX_EQS], eq_en_cache	; Cache of which are enabled
+.var byte[MAX_EQS], eq_en_cache	; Cache of which Z functions are enabled
+.var byte, totalXiters
+.var byte, thisXiters
+.var byte, completeXiters
 
 ; The following are pointers to *not the beginning* that are moved as rendering progresses
 .var word, pgrid_x				;Pointer to variable data	3*MAX_EQS*MAX_XY_RES*MAX_XY_RES*2
@@ -151,6 +156,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define COLOR_BLACK $0000
 #define WINDOW_ID_OFFSET $80
 #define MIN_FILL_ERASE_SEGMENTS 600
+#define PROGRESS_WIDTH 17
 
 #define DEFAULT_XY_RES MAX_XY_RES
 #define DEFAULT_XY_MIN $F800

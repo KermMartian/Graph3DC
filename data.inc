@@ -281,3 +281,9 @@ GridIcon_Autumn:
 
 BaseZVarName:
 	.db EquObj, tVarEqu, tZ1, 0
+
+sTotalProgress:
+;   .db "12345678901234567890123456"
+	.db "Total: ",$C1,"                 ]",0
+sPartialProgress:
+	.db "Z1:    ",$C1,"                 ]",0

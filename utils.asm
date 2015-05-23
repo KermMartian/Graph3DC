@@ -932,6 +932,10 @@ SetTextColors:
 	ld (drawFGColor),de
 	ld (textFGColor),de
 	ret
+	
+DisableTextColors:
+	res 4,(iy+$4a)							; Puts should listen to colored text
+	ret
 
 ;--------------------------------------------------
 SetSpeedFast:
@@ -1014,4 +1018,29 @@ SetFunctionMode:
 	and $ff^((1 << grfPolarM) | (1 << grfParamM) | (1 << grfRecurM))
 	or 0+(1 << grfFuncM)
 	ld (iy+grfModeFlags),a
+	ret
+	
+;--------------------------------------------------
+OP1toOP2:
+	ld hl,OP1
+	ld de,OP2
+	jr OPXtoOPX
+OP1toOP4:
+	ld hl,OP1
+	ld de,OP4
+	jr OPXtoOPX
+OP4toOP2:
+	ld hl,OP4
+	ld de,OP2
+	jr OPXtoOPX
+OP4toOP1:
+	ld hl,OP4
+	jr OPXtoOP1
+OP2toOP1:
+	ld hl,OP2
+OPXtoOP1:
+	ld de,OP1
+OPXtoOPX:
+	ld bc,9
+	ldir
 	ret

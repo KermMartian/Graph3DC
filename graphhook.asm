@@ -261,8 +261,31 @@ Graph_CountEQs_Loop_NotEnabled:
 	ld a,c
 #endif
 	ld (counteqs),a
+	ld e,a
+	ld d,0
+	ld a,(dim_x)
+	call multade
+	ld a,l
+	ld (totalXiters),a
+	xor a
+	ld (completeXiters),a
 
-	.warn "Need to draw an hourglass or progress bar"
+	ld hl,(bgcolor)
+	call negate_hl
+	dec hl						;This makes negate_hl equivalent to cpl hl
+	ld (fgcolor),hl
+	ex de,hl					;Get fgcolor
+	ld hl,(0 * 256) + 8
+	ld (CurRow),hl
+	ld bc,(bgcolor)
+	ld hl,sTotalProgress
+	push bc
+		push de
+			call PutsColored
+			pop de
+		pop bc
+	ld hl,sPartialProgress
+	call PutsColored
 
 	; Initialize pointers into big stored data chunks
 	ld hl,grid_x
@@ -301,6 +324,28 @@ Graph_Compute_EQ:
 		bit 5,(hl)
 		jp z,Graph_Compute_EQ_Next
 
+		; Initialize progress bar
+		ld de,(bgcolor)
+		push de
+			ld c,e
+			ld b,d
+			call SetTextColors
+			ld b,PROGRESS_WIDTH
+			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
+			ld (CurRow),hl
+Graph_Compute_EQ_ClearProgressLoop:
+			ld a,$E0
+			push bc
+				bcall(_PutC)
+				pop bc
+			djnz Graph_Compute_EQ_ClearProgressLoop
+			pop bc
+		ld de,(fgcolor)
+		call SetTextColors								; To prep for displaying the actual progress
+		xor a
+		ld (thisXiters),a
+		
+		; Begin the actual calculations
 		ld a,(dim_x)
 		ld c,a
 Graph_Compute_EQ_Outer:
@@ -367,15 +412,36 @@ Graph_Compute_EQ_Inner:
 			; then post-un-scale Z. Keeping our FP numbers within the bounds
 			; of sanity is key.
 			call TrashRAM_SwapOut
+			; Generate X value
 			ld hl,(val_x)
 			call FPtoOP1
+			call OP1toOP4
+			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
+			call FPtoOP1
+			call OP4toOP2
+			bcall(_FPMult)
+			call FPtoOP1
 			bcall(_StoX)
+			; Generate Y value
 			ld hl,(val_y)
 			call FPtoOP1
+			call OP1toOP4
+			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
+			call FPtoOP1
+			call OP4toOP2
+			bcall(_FPMult)
+			call FPtoOP1
 			bcall(_StoY)
+			; Generate Z value
 			ld hl,ParseVar
 			rst 20h
 			bcall(_ParseInp)
+			call OP1toOP4
+			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
+			call FPtoOP1
+			call OP1toOP2
+			call OP4toOP1
+			bcall(_FPDiv)
 			call OP1toFP
 			push hl
 				call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
@@ -402,6 +468,58 @@ Graph_Compute_EQ_Inner:
 			pop bc
 		dec b
 		jp nz,Graph_Compute_EQ_Inner
+		
+		push bc
+			; Display some progress for this equation
+			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
+			ld (CurRow),hl
+			ld hl,thisXiters
+			inc (hl)
+			ld e,(hl)
+			ld d,0
+			ld a,PROGRESS_WIDTH
+			call multade
+			ld a,(dim_x)
+			ld c,a
+			call g3dc_divhlc
+			ld b,l
+			inc b
+Graph_Compute_EQ_SetProgressLoop:
+			dec b
+			jr z,Graph_Compute_EQ_SetProgressLoop_Done
+			ld a,$E0
+			push bc
+				bcall(_PutC)
+				pop bc
+			jr Graph_Compute_EQ_SetProgressLoop
+Graph_Compute_EQ_SetProgressLoop_Done:
+			
+			; Display some progress for overall equations
+			ld hl,((25-PROGRESS_WIDTH) * 256) + 8
+			ld (CurRow),hl
+			ld hl,completeXiters
+			inc (hl)
+			ld e,(hl)
+			ld d,0
+			ld a,PROGRESS_WIDTH
+			call multade
+			ld a,(totalXiters)
+			ld c,a
+			call g3dc_divhlc
+			ld b,l
+			inc b
+Graph_Compute_EQ_SetProgressLoop2:
+			dec b
+			jr z,Graph_Compute_EQ_SetProgressLoop2_Done
+			ld a,$E0
+			push bc
+				bcall(_PutC)
+				pop bc
+			jr Graph_Compute_EQ_SetProgressLoop2
+Graph_Compute_EQ_SetProgressLoop2_Done:
+
+			pop bc
+
 		dec c
 		jp nz,Graph_Compute_EQ_Outer
 Graph_Compute_EQ_Next:
@@ -409,6 +527,23 @@ Graph_Compute_EQ_Next:
 	inc c				; next equation name
 	dec b
 	jp nz,Graph_Compute_EQ
+
+	; Clear the screen of those silly progress bars
+	ld de,(bgcolor)
+	ld b,d
+	ld c,e
+	call SetTextColors
+	ld hl,(0 * 256) + 8
+	ld (CurRow),hl
+	ld b,26*2
+Graph_Compute_EQ_ClearProgress_Loop:
+	ld a,$E0
+	push bc
+		bcall(_PutC)
+		pop bc
+	djnz Graph_Compute_EQ_ClearProgress_Loop
+	call ResetColors
+	call DisableTextColors
 	
 	; Set up the axes and bounding box arrays here
 	ld hl,(max_x)
