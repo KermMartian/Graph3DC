@@ -1,11 +1,16 @@
 windowHook:
 	.db $83
 	call SetSpeedFast
-	cp a							;Set z flag
-	push hl
-		ld hl,SETTINGS_HOOKBACK_WIN
-		call HookChainer
-	ret nz							;other hook said to do something /non-standard/
+	push af
+		push bc
+			push ix
+				push hl
+					call LTS_CacheAV
+					pop hl
+				pop ix
+			pop bc
+		pop af
+	; Do not chain, because that's silly.
 	or a
 	jr nz,windowHook_Not0
 	or $ff
@@ -134,7 +139,14 @@ windowHook_SaveSimpleByte:
 		bcall(_CpOP1OP2)
 		jr z,windowHook_SaveSimpleByte_Cancel	; value <= 1
 		jr c,windowHook_SaveSimpleByte_Cancel
-		ld a,MAX_XY_RES+1
+		ld b,MAX_XY_RES + 1
+		ld a,SETTINGS_AVOFF_HIRES
+		call LTS_GetByte
+		or a
+		jr z,windowHook_SaveSimpleByte_HaveMaxVal
+		ld b,MAX_XY_RES_HI + 1
+windowHook_SaveSimpleByte_HaveMaxVal:
+		ld a,b
 		bcall(_SetXXOP2)
 		bcall(_CpOP1OP2)
 		jr z,windowHook_SaveSimpleByte_Cancel	; value >= 256

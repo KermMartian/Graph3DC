@@ -967,19 +967,46 @@ InitZEquations_Loop_Exists:
 	djnz InitZEquations_Loop
 	ret
 ;--------------------------------------------------
+CheckEnabled_Setup:
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
+	ld c,tZ1
+	ld hl,eq_en_cache
+CheckEnabled_Setup_Loop:
+	push bc
+		push hl
+			push bc
+				ld hl,BaseZVarName
+				rst 20h
+				pop bc
+			ld a,c
+			ld (OP1+2),a
+			rst 10h
+			ld a,0
+			jr c,CheckEnabled_Setup_Loop_Store
+			bit 5,(hl)
+			jr z,CheckEnabled_Setup_Loop_Store
+			ld a,1
+CheckEnabled_Setup_Loop_Store:
+			pop hl
+		ld (hl),a
+		pop bc
+	inc hl
+	inc c
+	djnz CheckEnabled_Setup_Loop
+	ret
+
 CheckEnabledA:
-	push af
-		ld hl,BaseZVarName
-		rst 20h
-		pop af
-	ld (OP1+2),a
-	rst 10h
-	jr c,CheckEnabledA_Disabled
-	bit 5,(hl)
+	sub tZ1
+	ld e,a
+	ld d,0
+	ld hl,eq_en_cache
+	add hl,de
+	ld a,(hl)
+	or a
 	ret
-CheckEnabledA_Disabled:
-	cp a
-	ret
+
 ;--------------------------------------------------
 SetFunctionMode:
 	; Set Function mode - can only touch a!

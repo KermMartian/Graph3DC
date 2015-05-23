@@ -10,6 +10,8 @@ GraphHook:
 	or a
 	jr nz,GraphHook_Not0
 	call Graph_Setup
+	call DisplayOrg
+	cp a
 	ret
 
 GraphHook_Not0:
@@ -18,10 +20,13 @@ GraphHook_Not0:
 
 	cp 7				; OS about to draw graph
 	jr nz,GraphHook_RetZSet
+
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
 	call Graph_Recompute
 	call Graph_Rerotate
+
+	call DisplayNormal
 	call Graph_Redraw
 	call DisplayOrg
 	or $ff
@@ -130,6 +135,10 @@ Graph_Setup:
 	ld (MapFactorX),hl
 	ld hl,(240-30)/2
 	ld (MapFactorY),hl
+	
+	; Load equation information
+	call CheckEnabled_Setup
+
 	ret
 
 ;-----------------------------------
@@ -170,6 +179,7 @@ blank_loop:
 	ld	a,d
 	or	e
 	jr	nz,blank_loop
+	call DisplayOrg
 	ret
 
 ;-----------------------------------
@@ -221,8 +231,6 @@ Graph_Recolor:
 	ld (at_step_y),a
 	ld a,$ff
 	ld (whichtrace),a
-	xor a
-	ld (counteqs),a
 
 	ld hl,FP_PI
 	ld (alpha),hl
@@ -256,15 +264,6 @@ Graph_CountEQs_Loop_NotEnabled:
 
 	.warn "Need to draw an hourglass or progress bar"
 
-	;Iterate over all equations
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld a,SETTINGS_MAXEQS
-	call LTS_GetByte
-	ld b,a
-#endif
-
 	; Initialize pointers into big stored data chunks
 	ld hl,grid_x
 	ld (pgrid_x),hl
@@ -273,8 +272,35 @@ Graph_CountEQs_Loop_NotEnabled:
 	ld hl,grid_z
 	ld (pgrid_z),hl
 
+	;Iterate over all equations
+#ifdef DEBUG_GRAPH
+	ld b,1
+#else
+	ld a,SETTINGS_MAXEQS
+	call LTS_GetByte
+	ld b,a
+#endif
+	ld c,tZ1
+
 Graph_Compute_EQ:
 	push bc
+		; Select the proper equation
+		ld hl,BaseZVarName
+		ld de,parseVar
+		ld bc,9
+		push de
+			ldir
+			pop hl
+		pop bc
+	push bc
+		ld a,c
+		ld (parseVar + 2),a
+		rst 20h
+		rst 10h
+		jp c,Graph_Compute_EQ_Next
+		bit 5,(hl)
+		jp z,Graph_Compute_EQ_Next
+
 		ld a,(dim_x)
 		ld c,a
 Graph_Compute_EQ_Outer:
@@ -297,7 +323,6 @@ Graph_Compute_EQ_Outer:
 		ld b,a
 Graph_Compute_EQ_Inner:
 		push bc
-		
 			; Update the val_y and pgrid_y values
 			ld a,b
 			dec a
@@ -324,7 +349,7 @@ Graph_Compute_EQ_Inner:
 			ld (pgrid_x),hl
 
 			; Compute output value
-#ifndef DEBUG_GRAPH
+#ifdef DEBUG_GRAPH
 			;ld hl,0
 			ld hl,(val_x)
 			ld de,(val_y)
@@ -337,11 +362,24 @@ Graph_Compute_EQ_Inner:
 			call signed_multbcde_fp
 			ex de,hl
 #else
-			.fail "Need to actually compute something here!"
 			; To fit into the constraints of our fixed-point numbers, we
 			; need to pre-scale X and Y, feed to our equation and get Z,
 			; then post-un-scale Z. Keeping our FP numbers within the bounds
 			; of sanity is key.
+			call TrashRAM_SwapOut
+			ld hl,(val_x)
+			call FPtoOP1
+			bcall(_StoX)
+			ld hl,(val_y)
+			call FPtoOP1
+			bcall(_StoY)
+			ld hl,ParseVar
+			rst 20h
+			bcall(_ParseInp)
+			call OP1toFP
+			push hl
+				call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
+				pop hl
 #endif
 
 			; Store computed Z value and update pointer
@@ -366,7 +404,9 @@ Graph_Compute_EQ_Inner:
 		jp nz,Graph_Compute_EQ_Inner
 		dec c
 		jp nz,Graph_Compute_EQ_Outer
+Graph_Compute_EQ_Next:
 		pop bc
+	inc c				; next equation name
 	dec b
 	jp nz,Graph_Compute_EQ
 	
@@ -440,6 +480,11 @@ Graph_Compute_EQ_Inner:
 	call CopyContainCoords	
 	
 	; Compute the colors for the graphs here
+	ld hl,grid_z
+	ld (pgrid_z),hl
+	ld hl,grid_colors
+	ld (pgrid_colors),hl
+
 	; Iterate over all equations
 #ifdef DEBUG_GRAPH
 	ld b,1
@@ -448,14 +493,13 @@ Graph_Compute_EQ_Inner:
 	call LTS_GetByte
 	ld b,a
 #endif
-
-	ld hl,grid_z
-	ld (pgrid_z),hl
-	ld hl,grid_colors
-	ld (pgrid_colors),hl
+	ld c,tZ1
 
 Graph_Color_EQ:
 	push bc
+		ld a,c
+		call CheckEnabledA
+		jp z,Graph_Color_EQ_Next
 		ld a,(dim_x)
 		ld c,a
 Graph_Color_EQ_Outer:
@@ -681,7 +725,9 @@ Graph_Color_EQ_Inner_StoreColor:
 		jp nz,Graph_Color_EQ_Inner
 		dec c
 		jp nz,Graph_Color_EQ_Outer
+Graph_Color_EQ_Next:
 		pop bc
+	inc c									; Next equation
 	dec b
 	jp nz,Graph_Color_EQ
 	call TrashRAM_SwapOut
@@ -776,9 +822,14 @@ Graph_Rerotate:
 	call LTS_GetByte
 	ld b,a
 #endif
+	ld c,tZ1
 
 Graph_Rotate_EQ:
 	push bc
+		ld a,c
+		call CheckEnabledA
+		jp z,Graph_Rotate_EQ_Next
+	
 		ld a,(dim_x)
 		ld c,a
 Graph_Rotate_EQ_Outer:
@@ -787,7 +838,9 @@ Graph_Rotate_EQ_Outer:
 		call Rotate_B_Points		;uses the vals based on pgrid_x/y/z
 		dec c
 		jp nz,Graph_Rotate_EQ_Outer
+Graph_Rotate_EQ_Next:
 		pop bc
+	inc c							; Next equation
 	dec b
 	jp nz,Graph_Rotate_EQ
 	
@@ -826,40 +879,11 @@ Graph_Redraw:
 	; Center was set above, (ex, ey); FP_EZ is a constant
 	; Ready to transform 3D coordinates into screen coordinates and display
 
-	; Initialize pointers into big stored data chunks
-	ld hl,grid_x
-	ld (pgrid_x),hl
-	ld hl,grid_y
-	ld (pgrid_y),hl
-	ld hl,grid_z
-	ld (pgrid_z),hl
-	ld hl,grid_sx
-	ld (pgrid_sx),hl
-	ld hl,grid_sy
-	ld (pgrid_sy),hl
+	call TrashRAM_SwapOut
+Graph_Draw_Redraw:
+	xor a
+	call Graph_Render
 	
-#ifdef DEBUG_GRAPH
-	ld b,1
-#else
-	ld a,SETTINGS_MAXEQS
-	call LTS_GetByte
-	ld b,a
-#endif
-
-Graph_Map_EQ:
-	push bc
-		ld a,(dim_x)
-		ld c,a
-Graph_Map_EQ_Outer:
-		ld a,(dim_y)
-		ld b,a
-		call Map_B_Points
-		dec c
-		jp nz,Graph_Map_EQ_Outer
-		pop bc
-	dec b
-	jp nz,Graph_Map_EQ
-
 	ld hl,axes_x
 	ld (pgrid_x),hl
 	ld hl,axes_y
@@ -872,11 +896,6 @@ Graph_Map_EQ_Outer:
 	ld (pgrid_sy),hl
 	ld b,AXES_BOUND_COORDS
 	call Map_B_Points
-	
-	call TrashRAM_SwapOut
-Graph_Draw_Redraw:
-	xor a
-	call Graph_Render
 	
 	ld a,(axismode)
 	rrca

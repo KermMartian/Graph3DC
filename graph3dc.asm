@@ -6,11 +6,15 @@
 ; [ ] Detect entirely-offscreen lines and do not draw
 ; [ ] Implement better line-cropping as in Graph3DP?
 ; [ ] Implement Format menu
-; [ ] Implement proper variable input at Y= menu
+; [X] Implement proper variable input at Y= menu
+; [ ] Add tip for equation entry in Y= menu
+; [ ] Add progress bar and text while computing graph
 ; [ ] Add graph styles on Y= menu and proper storage
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [ ] Add high-resolution, 2-equation (?) mode
+; [ ] Add high-resolution, 2-equation mode
 ; [ ] Lots of beta-testing!
+; [ ] Fix bug when Z= equation entry expands to second line
+
 .echo "-----------------------\n"
 
 .binarymode intel                 ; TI-83+ Application
@@ -29,10 +33,19 @@ NUM_PAGES = 1
 ; Assembly-time flags
 ;#define DEBUG_EQ
 ;#define DEBUG_GRAPH
+#define DEBUG_HIRES
 #define GAMMA_ZERO					; Gamma is always zero in rotation
 
-myflag .equ asm_flag1
-someflagbit equ 0
+; Used for "normal" resolution mode
+#define MAX_XY_RES 17
+#define MAX_EQS 5
+
+; Used for "high" resolution mode
+#define MAX_XY_RES_HI 27
+#define MAX_EQS_HI 2
+
+#define sMAX(a,b) (((a) > (b))?0+(a):0+(b))		; Static max function
+
 temp1	.equ cmdShadow
 temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 
@@ -94,6 +107,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var byte, dim_x
 .var byte, dim_y
 .var byte, ateq
+
 ; The following used for lines and points
 .var word, xstart
 .var word, ystart
@@ -109,6 +123,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var byte, counteqs
 .var byte, erase_mode
 .var word, lts_av
+.var byte[MAX_EQS], eq_en_cache	; Cache of which are enabled
 
 ; The following are pointers to *not the beginning* that are moved as rendering progresses
 .var word, pgrid_x				;Pointer to variable data	3*MAX_EQS*MAX_XY_RES*MAX_XY_RES*2
@@ -128,8 +143,6 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define OUT_BOTTOM 8
 #define INT_TO_8P8	256
 #define TRASHABLE_RAM_PAGE 6							;0-7
-#define MAX_XY_RES 18
-#define MAX_EQS 5
 #define MAX_COLOR_MODES 3
 #define MAX_AXIS_MODES 4
 #define AXES_BOUND_COORDS 20
@@ -137,6 +150,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define COLOR_WHITE $ffff
 #define COLOR_BLACK $0000
 #define WINDOW_ID_OFFSET $80
+#define MIN_FILL_ERASE_SEGMENTS 600
 
 #define DEFAULT_XY_RES MAX_XY_RES
 #define DEFAULT_XY_MIN $F800
@@ -166,35 +180,39 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_AVOFF_AXISMODE	1				;1 byte
 #define SETTINGS_AVOFF_BGCOLOR	2				;2 bytes
 #define SETTINGS_AVOFF_COLOR	4				;1 byte
-#define SETTINGS_AVOFF_XDIM		5				;1 byte
-#define SETTINGS_AVOFF_YDIM		6				;1 byte
-#define SETTINGS_AVOFF_SCALEF	7				;2 bytes
-#define SETTINGS_AVOFF_ZOOMF	9				;2 bytes
-#define SETTINGS_AVOFF_MINX		11				;2 bytes
-#define SETTINGS_AVOFF_MINY		13				;2 bytes
-#define SETTINGS_AVOFF_MAXX		15				;2 bytes
-#define SETTINGS_AVOFF_MAXY		17				;2 bytes
-#define SETTINGS_HOOKBACK_WIN	19				;4 bytes  - WindowHook backup
-#define SETTINGS_HOOKBACK_YEQU	23				;4 bytes  - YEquHook backup
-#define SETTINGS_HOOKBACK_CUR	27				;4 bytes  - CursorHook backup
-#define SETTINGS_MONVECBACK		31				;13 bytes - Monitor vector backup
-#define SETTINGS_HOOKBACK_APP	44				;4 bytes  - AppChangeHook backup
-#define SETTINGS_HOOKBACK_MENU	48				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_GRPH	52				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_KEY	56				;4 bytes  - KeyHook backup
-#define SETTINGS_MAXEQS			60				;1 byte
+#define SETTINGS_AVOFF_HIRES	5				;1 byte
+#define SETTINGS_AVOFF_XDIM		6				;1 byte
+#define SETTINGS_AVOFF_YDIM		7				;1 byte
+#define SETTINGS_AVOFF_SCALEF	8				;2 bytes
+#define SETTINGS_AVOFF_ZOOMF	10				;2 bytes
+#define SETTINGS_AVOFF_MINX		12				;2 bytes
+#define SETTINGS_AVOFF_MINY		14				;2 bytes
+#define SETTINGS_AVOFF_MAXX		16				;2 bytes
+#define SETTINGS_AVOFF_MAXY		18				;2 bytes
+#define SETTINGS_HOOKBACK_WIN	20				;4 bytes  - WindowHook backup
+#define SETTINGS_HOOKBACK_YEQU	24				;4 bytes  - YEquHook backup
+#define SETTINGS_HOOKBACK_CUR	28				;4 bytes  - CursorHook backup
+#define SETTINGS_MONVECBACK		32				;13 bytes - Monitor vector backup
+#define SETTINGS_HOOKBACK_APP	45				;4 bytes  - AppChangeHook backup
+#define SETTINGS_HOOKBACK_MENU	49				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_GRPH	53				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_KEY	57				;4 bytes  - KeyHook backup
+#define SETTINGS_MAXEQS			61				;1 byte
+
+capacity_3d_el = sMAX(MAX_EQS * MAX_XY_RES * MAX_XY_RES, MAX_EQS_HI * MAX_XY_RES_HI * MAX_XY_RES_HI)
+capacity_2d_el = sMAX(MAX_XY_RES * MAX_XY_RES, MAX_XY_RES_HI * MAX_XY_RES_HI)
 
 ; "Dynamic" allocation for graph-drawing data
 trash_ram_loc	.equ	$C000
 grid_x			.equ	trash_ram_loc + 0
-grid_y			.equ	grid_x + (MAX_EQS*MAX_XY_RES*MAX_XY_RES*2)
-grid_Z			.equ	grid_y + (MAX_EQS*MAX_XY_RES*MAX_XY_RES*2)
-grid_sx			.equ	grid_z + (MAX_EQS*MAX_XY_RES*MAX_XY_RES*2)
-grid_sy			.equ	grid_sx + (MAX_XY_RES*MAX_XY_RES*2)
-axes_sx			.equ	grid_sy + (MAX_XY_RES*MAX_XY_RES*2)
+grid_y			.equ	grid_x + (capacity_3d_el * 2)
+grid_z			.equ	grid_y + (capacity_3d_el * 2)
+grid_sx			.equ	grid_z + (capacity_3d_el * 2)
+grid_sy			.equ	grid_sx + (capacity_2d_el * 2)
+axes_sx			.equ	grid_sy + (capacity_2d_el * 2)
 axes_sy			.equ	axes_sx + (AXES_BOUND_COORDS*2)
 grid_colors		.equ	axes_sy + (AXES_BOUND_COORDS*2)
-axes_x			.equ	grid_colors + (MAX_EQS*MAX_XY_RES*MAX_XY_RES*2)
+axes_x			.equ	grid_colors + (capacity_3d_el * 2)
 axes_y			.equ	axes_x + (2*20)
 axes_z			.equ	axes_y + (2*20)
 ;dialogCBRAM		.equ	axes_z + (2*20)
@@ -202,7 +220,7 @@ trash_ram_end	.equ	axes_z + (2*20)		;dialogCBRAM + 16		; 16 bytes for (windowMen
 trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
 .echo "Trash RAM page has ", trash_ram_fill, "/16384 bytes allocated\n"
 .if trash_ram_fill > ($4000-$200)
-.fail "Trash RAM page has overflowed!
+.fail "Trash RAM page has overflowed!"
 .endif
 
 ; As suggested by MicrOS. This restricts how much
@@ -772,6 +790,21 @@ Menu4_GraphModify_BGColor:
 	;jp Menu_4_Redraw
 ;============================================================
 Graph_Erase:
+	; Determine the number of segment draws needed to erase
+	ld a,(dim_x)
+	ld e,a
+	ld d,0
+	ld a,(dim_y)
+	call multade
+	ex de,hl
+	ld a,(counteqs)
+	call multade
+	add hl,hl
+	ld de,MIN_FILL_ERASE_SEGMENTS
+	or a
+	sbc hl,de
+	jp nc,Graph_Clear_Screen					; Clear by filling
+	
 	ld hl,(bgcolor)
 	ld (fgcolor),hl
 	ld a,(axismode)
@@ -861,10 +894,14 @@ Graph_Render:
 	ld (erase_mode),a
 	call TrashRAM_SwapIn
 
-	ld hl,grid_sx
-	ld (pgrid_sx),hl
-	ld hl,grid_sy
-	ld (pgrid_sy),hl
+	; Initialize pointers into big stored data chunks
+	ld hl,grid_x
+	ld (pgrid_x),hl
+	ld hl,grid_y
+	ld (pgrid_y),hl
+	ld hl,grid_z
+	ld (pgrid_z),hl
+
 	ld hl,grid_colors
 	ld (pgrid_colors),hl
 	
@@ -877,10 +914,34 @@ Graph_Render:
 		call LTS_GetByte
 		ld b,a
 #endif
+		ld c,tZ1
 
 Graph_Render_EQ:
 		push bc
-			ld hl,(pgrid_sx)
+			ld a,c
+			call CheckEnabledA
+			jp z,Graph_Render_EQ_Next
+
+			ld hl,grid_sx
+			ld (pgrid_sx),hl
+			ld hl,grid_sy
+			ld (pgrid_sy),hl
+	
+			ld a,(dim_x)
+			ld c,a
+Graph_Map_EQ_Outer:
+			ld a,(dim_y)
+			ld b,a
+			call Map_B_Points
+			dec c
+			jr nz,Graph_Map_EQ_Outer
+Graph_Map_EQ_Next:
+
+			ld hl,grid_sy
+			ld (pgrid_sy),hl
+			ld hl,grid_sx
+			ld (pgrid_sx),hl
+			;ld hl,(pgrid_sx)
 			push hl
 				ld hl,(pgrid_sy)
 				push hl
@@ -1025,7 +1086,9 @@ Graph_Render_EQ_YMajor_Inner_Go:
 			jp nz,Graph_Render_EQ_YMajor_Inner
 			dec c
 			jp nz,Graph_Render_EQ_YMajor_Outer
-			pop bc	
+Graph_Render_EQ_Next:
+			pop bc
+		inc c							; Next equation
 		dec b
 		jp nz,Graph_Render_EQ
 		pop iy
