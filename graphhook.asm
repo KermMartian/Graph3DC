@@ -324,6 +324,8 @@ Graph_Compute_EQ:
 		bit 5,(hl)
 		jp z,Graph_Compute_EQ_Next
 
+		; Note! _PutC messes this up.
+		call TrashRAM_SwapOut
 		; Initialize progress bar
 		ld de,(bgcolor)
 		push de
@@ -344,6 +346,8 @@ Graph_Compute_EQ_ClearProgressLoop:
 		call SetTextColors								; To prep for displaying the actual progress
 		xor a
 		ld (thisXiters),a
+		; Note! _PutC messes this up.
+		call TrashRAM_SwapIn
 		
 		; Begin the actual calculations
 		ld a,(dim_x)
@@ -412,6 +416,7 @@ Graph_Compute_EQ_Inner:
 			; then post-un-scale Z. Keeping our FP numbers within the bounds
 			; of sanity is key.
 			call TrashRAM_SwapOut
+
 			; Generate X value
 			ld hl,(val_x)
 			call FPtoOP1
@@ -420,8 +425,8 @@ Graph_Compute_EQ_Inner:
 			call FPtoOP1
 			call OP4toOP2
 			bcall(_FPMult)
-			call FPtoOP1
 			bcall(_StoX)
+
 			; Generate Y value
 			ld hl,(val_y)
 			call FPtoOP1
@@ -430,8 +435,8 @@ Graph_Compute_EQ_Inner:
 			call FPtoOP1
 			call OP4toOP2
 			bcall(_FPMult)
-			call FPtoOP1
 			bcall(_StoY)
+
 			; Generate Z value
 			ld hl,ParseVar
 			rst 20h
@@ -470,6 +475,9 @@ Graph_Compute_EQ_Inner:
 		jp nz,Graph_Compute_EQ_Inner
 		
 		push bc
+			; Note! _PutC messes this up.
+			call TrashRAM_SwapOut
+			
 			; Display some progress for this equation
 			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
 			ld (CurRow),hl
@@ -517,6 +525,8 @@ Graph_Compute_EQ_SetProgressLoop2:
 				pop bc
 			jr Graph_Compute_EQ_SetProgressLoop2
 Graph_Compute_EQ_SetProgressLoop2_Done:
+			; Note! _PutC messes this up.
+			call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
 
 			pop bc
 
@@ -528,6 +538,8 @@ Graph_Compute_EQ_Next:
 	dec b
 	jp nz,Graph_Compute_EQ
 
+	; Note! _PutC messes this up.
+	call TrashRAM_SwapOut
 	; Clear the screen of those silly progress bars
 	ld de,(bgcolor)
 	ld b,d
@@ -544,6 +556,7 @@ Graph_Compute_EQ_ClearProgress_Loop:
 	djnz Graph_Compute_EQ_ClearProgress_Loop
 	call ResetColors
 	call DisableTextColors
+	call TrashRAM_SwapIn
 	
 	; Set up the axes and bounding box arrays here
 	ld hl,(max_x)
@@ -635,6 +648,7 @@ Graph_Color_EQ:
 		ld a,c
 		call CheckEnabledA
 		jp z,Graph_Color_EQ_Next
+
 		ld a,(dim_x)
 		ld c,a
 Graph_Color_EQ_Outer:
@@ -1019,6 +1033,8 @@ Graph_Draw_Redraw:
 	xor a
 	call Graph_Render
 	
+	call TrashRAM_SwapIn
+
 	ld hl,axes_x
 	ld (pgrid_x),hl
 	ld hl,axes_y
@@ -1053,6 +1069,215 @@ Graph_Draw_Redraw_NoAxes:
 	ld b,12
 	call Graph_Render_FromOffsets
 Graph_Draw_Redraw_NoBounds:
+
+	call TrashRAM_SwapOut
 	ret
+
+;-----------------------------------
+Graph_Render:
+	ld (erase_mode),a
+	call TrashRAM_SwapIn
+
+	; Initialize pointers into big stored data chunks
+	ld hl,grid_x
+	ld (pgrid_x),hl
+	ld hl,grid_y
+	ld (pgrid_y),hl
+	ld hl,grid_z
+	ld (pgrid_z),hl
+
+	ld hl,grid_colors
+	ld (pgrid_colors),hl
+	
+	di
+	push iy
+#ifdef DEBUG_GRAPH
+		ld b,1
+#else
+		ld a,SETTINGS_MAXEQS
+		call LTS_GetByte
+		ld b,a
+#endif
+		ld c,tZ1
+
+Graph_Render_EQ:
+		push bc
+			ld a,c
+			call CheckEnabledA
+			jp z,Graph_Render_EQ_Next
+
+			ld hl,grid_sx
+			ld (pgrid_sx),hl
+			ld hl,grid_sy
+			ld (pgrid_sy),hl
+	
+			ld a,(dim_x)
+			ld c,a
+Graph_Map_EQ_Outer:
+			ld a,(dim_y)
+			ld b,a
+			call Map_B_Points
+			dec c
+			jr nz,Graph_Map_EQ_Outer
+Graph_Map_EQ_Next:
+
+			ld hl,grid_sy
+			ld (pgrid_sy),hl
+			ld hl,grid_sx
+			ld (pgrid_sx),hl
+			;ld hl,(pgrid_sx)
+			push hl
+				ld hl,(pgrid_sy)
+				push hl
+					ld hl,(pgrid_colors)
+					push hl
+						ld a,(dim_x)
+						ld c,a
+Graph_Render_EQ_XMajor_Outer:
+						ld a,(dim_y)
+						ld b,a
+						dec b
+Graph_Render_EQ_XMajor_Inner:
+						push bc
+							ld hl,(pgrid_colors)
+							ld e,(hl)
+							inc hl
+							ld d,(hl)
+							inc hl
+							ld (pgrid_colors),hl
+							push de
+								pop iy
+							ld hl,(pgrid_sx)
+							ld e,(hl)
+							inc hl
+							ld d,(hl)
+							inc hl
+							ld (pgrid_sx),hl
+							ld c,(hl)
+							inc hl
+							ld b,(hl)
+							push bc
+								ld hl,(pgrid_sy)
+								ld c,(hl)
+								inc hl
+								ld b,(hl)
+								inc hl
+								ld (pgrid_sy),hl
+								ld a,(hl)
+								inc hl
+								ld h,(hl)
+								ld l,a
+								push hl
+									pop ix
+								pop hl
+							;bc, de, hl, ix, iy all set up
+							ld a,(erase_mode)
+							or a
+							jr z,Graph_Render_EQ_XMajor_Inner_Go
+							ld iy,(bgcolor)
+Graph_Render_EQ_XMajor_Inner_Go:
+							call ColorLine
+								
+							pop bc
+						dec b
+						jp nz,Graph_Render_EQ_XMajor_Inner
+						ld hl,(pgrid_sx)
+						inc hl
+						inc hl
+						ld (pgrid_sx),hl
+						ld hl,(pgrid_sy)
+						inc hl
+						inc hl
+						ld (pgrid_sy),hl
+						ld hl,(pgrid_colors)
+						inc hl
+						inc hl
+						ld (pgrid_colors),hl
+						dec c
+						jp nz,Graph_Render_EQ_XMajor_Outer
+						pop hl
+					ld (pgrid_colors),hl
+					pop hl
+				ld (pgrid_sy),hl
+				pop hl
+			ld (pgrid_sx),hl
+			
+			ld a,(dim_x)
+			ld c,a
+			dec c
+Graph_Render_EQ_YMajor_Outer:
+			ld a,(dim_y)
+			ld b,a
+Graph_Render_EQ_YMajor_Inner:
+			push bc
+				; Render the other lines
+				ld hl,(pgrid_colors)
+				ld e,(hl)
+				inc hl
+				ld d,(hl)
+				inc hl
+				ld (pgrid_colors),hl
+				push de
+					pop iy
+				ld hl,(pgrid_sx)
+				ld e,(hl)
+				inc hl
+				ld d,(hl)
+				inc hl
+				ld (pgrid_sx),hl
+				ld a,(dim_x)
+				ld c,a
+				ld b,0
+				add hl,bc
+				add hl,bc
+				dec hl
+				ld b,(hl)
+				dec hl
+				ld c,(hl)
+				push bc
+					ld hl,(pgrid_sy)
+					ld c,(hl)
+					inc hl
+					ld b,(hl)
+					inc hl
+					ld (pgrid_sy),hl
+					push bc
+						push af
+							ld a,(dim_x)
+							dec a
+							ld c,a
+							ld b,0
+							add hl,bc
+							add hl,bc
+							pop af
+						pop bc
+					ld a,(hl)
+					inc hl
+					ld h,(hl)
+					ld l,a
+					push hl
+						pop ix
+					pop hl
+				;bc, de, hl, ix, iy all set up
+				ld a,(erase_mode)
+				or a
+				jr z,Graph_Render_EQ_YMajor_Inner_Go
+				ld iy,(bgcolor)
+Graph_Render_EQ_YMajor_Inner_Go:
+				call ColorLine
+				pop bc
+			dec b
+			jp nz,Graph_Render_EQ_YMajor_Inner
+			dec c
+			jp nz,Graph_Render_EQ_YMajor_Outer
+Graph_Render_EQ_Next:
+			pop bc
+		inc c							; Next equation
+		dec b
+		jp nz,Graph_Render_EQ
+		pop iy
+	ei
+
+	jp TrashRAM_SwapOut
 
 ;-----------------------------------

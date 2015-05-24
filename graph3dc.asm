@@ -16,6 +16,7 @@
 ; [ ] Fix bug when Z= equation entry expands to second line
 ; [ ] Handle errors in ParseInp
 ; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
+; [ ] Fix Window menu not triggering starting from Graph screen
 
 .echo "-----------------------\n"
 
@@ -172,6 +173,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define FP_PI	$0324
 #define FP_2	$0200
 #define FP_EZ	$0100		;1.f/mtanf(fov/2.f) = 1.0 where fov=pi/2
+#define FP_0	$0000
 #define FP_MAGICCULL $8000
 #define DELTA_ANGLE			$0043			;pi/12
 #define NEG_DELTA_ANGLE		$FFBD			;-pi/12
@@ -355,7 +357,9 @@ ProgramStart_appInstalled:
 		ld de,14
 		ld hl,40
 		ld ix,bigicon
+		call DisplayNormal
 		call DrawSprite_4Bit_Enlarge
+		call DisplayOrg
 		ld hl,1+(8*256)
 		ld (currow),hl
 		ld hl,Text_G3DCName
@@ -896,211 +900,6 @@ Graph_Render_FromOffsets_Inner:
 	ei
 	ret
 
-Graph_Render:
-	ld (erase_mode),a
-	call TrashRAM_SwapIn
-
-	; Initialize pointers into big stored data chunks
-	ld hl,grid_x
-	ld (pgrid_x),hl
-	ld hl,grid_y
-	ld (pgrid_y),hl
-	ld hl,grid_z
-	ld (pgrid_z),hl
-
-	ld hl,grid_colors
-	ld (pgrid_colors),hl
-	
-	di
-	push iy
-#ifdef DEBUG_GRAPH
-		ld b,1
-#else
-		ld a,SETTINGS_MAXEQS
-		call LTS_GetByte
-		ld b,a
-#endif
-		ld c,tZ1
-
-Graph_Render_EQ:
-		push bc
-			ld a,c
-			call CheckEnabledA
-			jp z,Graph_Render_EQ_Next
-
-			ld hl,grid_sx
-			ld (pgrid_sx),hl
-			ld hl,grid_sy
-			ld (pgrid_sy),hl
-	
-			ld a,(dim_x)
-			ld c,a
-Graph_Map_EQ_Outer:
-			ld a,(dim_y)
-			ld b,a
-			call Map_B_Points
-			dec c
-			jr nz,Graph_Map_EQ_Outer
-Graph_Map_EQ_Next:
-
-			ld hl,grid_sy
-			ld (pgrid_sy),hl
-			ld hl,grid_sx
-			ld (pgrid_sx),hl
-			;ld hl,(pgrid_sx)
-			push hl
-				ld hl,(pgrid_sy)
-				push hl
-					ld hl,(pgrid_colors)
-					push hl
-						ld a,(dim_x)
-						ld c,a
-Graph_Render_EQ_XMajor_Outer:
-						ld a,(dim_y)
-						ld b,a
-						dec b
-Graph_Render_EQ_XMajor_Inner:
-						push bc
-							ld hl,(pgrid_colors)
-							ld e,(hl)
-							inc hl
-							ld d,(hl)
-							inc hl
-							ld (pgrid_colors),hl
-							push de
-								pop iy
-							ld hl,(pgrid_sx)
-							ld e,(hl)
-							inc hl
-							ld d,(hl)
-							inc hl
-							ld (pgrid_sx),hl
-							ld c,(hl)
-							inc hl
-							ld b,(hl)
-							push bc
-								ld hl,(pgrid_sy)
-								ld c,(hl)
-								inc hl
-								ld b,(hl)
-								inc hl
-								ld (pgrid_sy),hl
-								ld a,(hl)
-								inc hl
-								ld h,(hl)
-								ld l,a
-								push hl
-									pop ix
-								pop hl
-							;bc, de, hl, ix, iy all set up
-							ld a,(erase_mode)
-							or a
-							jr z,Graph_Render_EQ_XMajor_Inner_Go
-							ld iy,(bgcolor)
-Graph_Render_EQ_XMajor_Inner_Go:
-							call ColorLine
-								
-							pop bc
-						dec b
-						jp nz,Graph_Render_EQ_XMajor_Inner
-						ld hl,(pgrid_sx)
-						inc hl
-						inc hl
-						ld (pgrid_sx),hl
-						ld hl,(pgrid_sy)
-						inc hl
-						inc hl
-						ld (pgrid_sy),hl
-						ld hl,(pgrid_colors)
-						inc hl
-						inc hl
-						ld (pgrid_colors),hl
-						dec c
-						jp nz,Graph_Render_EQ_XMajor_Outer
-						pop hl
-					ld (pgrid_colors),hl
-					pop hl
-				ld (pgrid_sy),hl
-				pop hl
-			ld (pgrid_sx),hl
-			
-			ld a,(dim_x)
-			ld c,a
-			dec c
-Graph_Render_EQ_YMajor_Outer:
-			ld a,(dim_y)
-			ld b,a
-Graph_Render_EQ_YMajor_Inner:
-			push bc
-				; Render the other lines
-				ld hl,(pgrid_colors)
-				ld e,(hl)
-				inc hl
-				ld d,(hl)
-				inc hl
-				ld (pgrid_colors),hl
-				push de
-					pop iy
-				ld hl,(pgrid_sx)
-				ld e,(hl)
-				inc hl
-				ld d,(hl)
-				inc hl
-				ld (pgrid_sx),hl
-				ld a,(dim_x)
-				ld c,a
-				ld b,0
-				add hl,bc
-				add hl,bc
-				dec hl
-				ld b,(hl)
-				dec hl
-				ld c,(hl)
-				push bc
-					ld hl,(pgrid_sy)
-					ld c,(hl)
-					inc hl
-					ld b,(hl)
-					inc hl
-					ld (pgrid_sy),hl
-					push bc
-						push af
-							ld a,(dim_x)
-							dec a
-							ld c,a
-							ld b,0
-							add hl,bc
-							add hl,bc
-							pop af
-						pop bc
-					ld a,(hl)
-					inc hl
-					ld h,(hl)
-					ld l,a
-					push hl
-						pop ix
-					pop hl
-				;bc, de, hl, ix, iy all set up
-				ld a,(erase_mode)
-				or a
-				jr z,Graph_Render_EQ_YMajor_Inner_Go
-				ld iy,(bgcolor)
-Graph_Render_EQ_YMajor_Inner_Go:
-				call ColorLine
-				pop bc
-			dec b
-			jp nz,Graph_Render_EQ_YMajor_Inner
-			dec c
-			jp nz,Graph_Render_EQ_YMajor_Outer
-Graph_Render_EQ_Next:
-			pop bc
-		inc c							; Next equation
-		dec b
-		jp nz,Graph_Render_EQ
-		pop iy
-	ei
-
-	jp TrashRAM_SwapOut
 ;============================================================
 Rotate_B_Points:
 	push bc

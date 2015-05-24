@@ -346,16 +346,22 @@ OP1toFP:
 		ld hl,FP_MAX+1
 		bcall(_SetXXXXOP2)
 		bcall(_CpOP1OP2)
-		jr z,OP1toFP_Trunc
-		jr nc,OP1toFP_Trunc
+		jr z,OP1toFP_Trunc_High
+		jr nc,OP1toFP_Trunc_High
+		ld a,(OP1 + 1)				; Exponent
+		cp $80
+		jr c,OP1toFP_Trunc_Low
 		call ConvOP1C
 OP1toFP_Complete:
 		pop af
 	ret z
 	call negate_hl
 	ret
-OP1toFP_Trunc:
+OP1toFP_Trunc_High:
 		ld hl,FP_MAX
+		jr OP1toFP_Complete
+OP1toFP_Trunc_Low:
+		ld hl,FP_0
 		jr OP1toFP_Complete
 		
 ;Attempts to convert the TI float in OP1 into an unsigned integer in HL.
