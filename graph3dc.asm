@@ -17,6 +17,10 @@
 ; [ ] Handle errors in ParseInp
 ; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
 ; [ ] Fix Window menu not triggering starting from Graph screen
+; [ ] Fix wrong RAM page swapped in when GraphRender ends
+; [ ] Fix rendering in 3D even in 2D mode.
+; [ ] Add some kind of graphDirty flag for switching between trace and graph.
+; [ ] Deal with split-screen flag.
 
 .echo "-----------------------\n"
 
@@ -903,6 +907,19 @@ Graph_Render_FromOffsets_Inner:
 ;============================================================
 Rotate_B_Points:
 	push bc
+		; Get the Z coordinate
+		ld hl,(pgrid_z)
+		ld e,(hl)
+		inc hl
+		ld d,(hl)
+		ld hl,FP_MAGICCULL
+		call cphlde
+		jp z,Rotate_B_Points_MagicCull
+		
+		ld hl,(cz)
+		ex de,hl
+		call subhlde_fp			;val_z = (val_z - cz)
+		ld (val_z),hl
 		; Get the X coordinate
 		ld hl,(pgrid_x)
 		ld e,(hl)
@@ -921,15 +938,6 @@ Rotate_B_Points:
 		ex de,hl
 		call subhlde_fp			;val_y = (val_y - cy)
 		ld (val_y),hl
-		; Get the Z coordinate
-		ld hl,(pgrid_z)
-		ld e,(hl)
-		inc hl
-		ld d,(hl)
-		ld hl,(cz)
-		ex de,hl
-		call subhlde_fp			;val_z = (val_z - cz)
-		ld (val_z),hl
 		
 		; Do the rotation. Ogod.
 		ld bc,(val_x)				;dx =  (val_x-cx)*costy*costz + (val_y-cy)*(costy*sintz) + (val_z-cz)*(sinty);
@@ -1104,6 +1112,7 @@ Rotate_B_Points:
 		call addhlde_fp
 		; Store the new y val
 		ex de,hl
+Rotate_B_Points_NextPoint:
 		ld hl,(pgrid_z)
 		ld (hl),e
 		inc hl
@@ -1115,6 +1124,17 @@ Rotate_B_Points:
 	jp nz,Rotate_B_Points
 	ret
 
+Rotate_B_Points_MagicCull:
+		;de still contains FP_MAGICCULL
+		ld hl,(pgrid_x)
+		inc hl
+		inc hl
+		ld (pgrid_x),hl
+		ld hl,(pgrid_y)
+		inc hl
+		inc hl
+		ld (pgrid_y),hl
+		jr Rotate_B_Points_NextPoint
 ;============================================================
 Map_B_Points:
 	push bc
@@ -1147,6 +1167,9 @@ Map_B_Points:
 		ld d,(hl)
 		inc hl
 		ld (pgrid_z),hl
+		ld hl,FP_MAGICCULL
+		call cphlde
+		jr z,Graph_Map_EQ_Inner_Cull
 		ld hl,(cz)
 		ex de,hl
 		call subhlde_fp			;val_z = (val_z - cz)

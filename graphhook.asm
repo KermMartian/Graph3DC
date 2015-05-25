@@ -440,7 +440,9 @@ Graph_Compute_EQ_Inner:
 			; Generate Z value
 			ld hl,ParseVar
 			rst 20h
+			AppOnErr(Graph_Compute_EQ_Error)
 			bcall(_ParseInp)
+			AppOffErr
 			call OP1toOP4
 			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
 			call FPtoOP1
@@ -448,6 +450,18 @@ Graph_Compute_EQ_Inner:
 			call OP4toOP1
 			bcall(_FPDiv)
 			call OP1toFP
+			; Deal with min and max. Do it here so MAGICCULL values aren't figured in.
+			push hl
+				ld de,(val_max_z)
+				call MaxHLDE
+				ld (val_max_z),hl
+				pop hl
+			push hl
+				ld de,(val_min_z)
+				call MinHLDE
+				ld (val_min_z),hl
+				pop hl
+Graph_Compute_EQ_Inner_SwapAndStore:
 			push hl
 				call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
 				pop hl
@@ -461,14 +475,6 @@ Graph_Compute_EQ_Inner:
 			ld (hl),d
 			inc hl
 			ld (pgrid_z),hl
-			push de
-				ld hl,(val_max_z)
-				call MaxHLDE
-				ld (val_max_z),hl
-				pop de
-			ld hl,(val_min_z)
-			call MinHLDE
-			ld (val_min_z),hl
 
 			pop bc
 		dec b
@@ -883,6 +889,22 @@ Graph_Color_EQ_Next:
 	ret
 
 ;-----------------------------------
+Graph_Compute_EQ_Error:
+	cp E_Break					; Was it a break error?
+	jr z,Graph_Compute_EQ_Error_DoError
+Graph_Compute_EQ_Error_NotBreak:
+	ld hl,FP_MAGICCULL
+	cp E_NonReal
+	jp c,Graph_Compute_EQ_Inner_SwapAndStore
+	jr nz,Graph_Compute_EQ_Error_DoError
+	; Other check against Cmplx type? TODO
+Graph_Compute_EQ_Error_DoError:
+	push af
+		ld a,tUn
+		ld (parseVar + 2),a
+		pop af
+	bjump(_JError)
+;-----------------------------------
 Graph_Rerotate:
 	call TrashRAM_SwapIn						; NB: CAN'T CALL DCSE ROUTINES UNTIL SWAPOUT!
 	
@@ -1156,6 +1178,15 @@ Graph_Render_EQ_XMajor_Inner:
 							ld c,(hl)
 							inc hl
 							ld b,(hl)
+							; Check if either point is culled
+							ld hl,FP_MAGICCULL
+							or a
+							sbc hl,de
+							add hl,de
+							jr z,Graph_Render_EQ_XMajor_Inner_Cull
+							or a
+							sbc hl,bc
+							jr z,Graph_Render_EQ_XMajor_Inner_Cull
 							push bc
 								ld hl,(pgrid_sy)
 								ld c,(hl)
@@ -1177,7 +1208,13 @@ Graph_Render_EQ_XMajor_Inner:
 							ld iy,(bgcolor)
 Graph_Render_EQ_XMajor_Inner_Go:
 							call ColorLine
-								
+							jr Graph_Render_EQ_XMajor_Inner_Next
+Graph_Render_EQ_XMajor_Inner_Cull:
+							ld hl,(pgrid_sy)
+							inc hl
+							inc hl
+							ld (pgrid_sy),hl
+Graph_Render_EQ_XMajor_Inner_Next:
 							pop bc
 						dec b
 						jp nz,Graph_Render_EQ_XMajor_Inner
@@ -1234,6 +1271,16 @@ Graph_Render_EQ_YMajor_Inner:
 				ld b,(hl)
 				dec hl
 				ld c,(hl)
+				; Check if either point is culled
+				ld hl,FP_MAGICCULL
+				or a
+				sbc hl,de
+				add hl,de
+				jr z,Graph_Render_EQ_YMajor_Inner_Cull
+				or a
+				sbc hl,bc
+				jr z,Graph_Render_EQ_YMajor_Inner_Cull
+				; Now render
 				push bc
 					ld hl,(pgrid_sy)
 					ld c,(hl)
@@ -1265,6 +1312,13 @@ Graph_Render_EQ_YMajor_Inner:
 				ld iy,(bgcolor)
 Graph_Render_EQ_YMajor_Inner_Go:
 				call ColorLine
+				jr Graph_Render_EQ_YMajor_Inner_Next
+Graph_Render_EQ_YMajor_Inner_Cull:
+				ld hl,(pgrid_sy)
+				inc hl
+				inc hl
+				ld (pgrid_sy),hl
+Graph_Render_EQ_YMajor_Inner_Next:
 				pop bc
 			dec b
 			jp nz,Graph_Render_EQ_YMajor_Inner
