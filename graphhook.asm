@@ -450,17 +450,6 @@ Graph_Compute_EQ_Inner:
 			call OP4toOP1
 			bcall(_FPDiv)
 			call OP1toFP
-			; Deal with min and max. Do it here so MAGICCULL values aren't figured in.
-			push hl
-				ld de,(val_max_z)
-				call MaxHLDE
-				ld (val_max_z),hl
-				pop hl
-			push hl
-				ld de,(val_min_z)
-				call MinHLDE
-				ld (val_min_z),hl
-				pop hl
 Graph_Compute_EQ_Inner_SwapAndStore:
 			push hl
 				call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
@@ -475,7 +464,24 @@ Graph_Compute_EQ_Inner_SwapAndStore:
 			ld (hl),d
 			inc hl
 			ld (pgrid_z),hl
-
+			; Deal with min and max. Check for truncation values.
+			ld hl,FP_MAX
+			or a
+			sbc hl,de
+			jr z,Graph_Compute_EQ_Inner_SkipMinMax
+			ld hl,FP_MIN
+			or a
+			sbc hl,de
+			jr z,Graph_Compute_EQ_Inner_SkipMinMax
+			push de
+				ld hl,(val_max_z)
+				call MaxHLDE
+				ld (val_max_z),hl
+				pop de
+			ld hl,(val_min_z)
+			call MinHLDE
+			ld (val_min_z),hl
+Graph_Compute_EQ_Inner_SkipMinMax:
 			pop bc
 		dec b
 		jp nz,Graph_Compute_EQ_Inner
@@ -897,7 +903,11 @@ Graph_Compute_EQ_Error_NotBreak:
 	cp E_NonReal
 	jp c,Graph_Compute_EQ_Inner_SwapAndStore
 	jr nz,Graph_Compute_EQ_Error_DoError
-	; Other check against Cmplx type? TODO
+	; Apologies to Kirk and Graph3 for this check that I don't quite get
+	ld a,(OP1)
+	and $1F
+	cp CplxObj
+	jp nz,Graph_Compute_EQ_Inner_SwapAndStore
 Graph_Compute_EQ_Error_DoError:
 	push af
 		ld a,tUn
