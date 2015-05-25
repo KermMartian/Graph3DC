@@ -4,23 +4,32 @@
 
 ; TODO: 
 ; [/] Detect entirely-offscreen lines and do not draw
-; [ ] Implement better line-cropping as in Graph3DP?
-; [ ] Implement Format menu
+; [-] Implement better line-cropping as in Graph3DP?
 ; [X] Implement proper variable input at Y= menu
-; [ ] Add tip for equation entry in Y= menu
 ; [X] Add progress bar and text while computing graph
 ; [-] Add graph styles on Y= menu and proper storage
+; [X] Fix color leak with 2+ simultaneous equations
+; [X] Go somewhere handy after selecting a zoom option -> fixed via JForceGraphNoKey
+; [X] Handle errors in ParseInp
+; [X] Fix rendering in 3D even in 2D mode.
+; [X] Display proper Zn value next to progress bars
+; [ ] Explain what's happening while computation is happening
+; [ ] Fix 2D graphing freezing after entering a 3D equation
+; [ ] Implement Format menu
+; [ ] Implement Tracing
+; [ ] Add tip for equation entry in Y= menu
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [ ] Add high-resolution, 2-equation mode
+; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
 ; [ ] Lots of beta-testing!
-; [ ] Fix bug when Z= equation entry expands to second line
-; [ ] Handle errors in ParseInp
+; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
 ; [ ] Fix Window menu not triggering starting from Graph screen
 ; [ ] Fix wrong RAM page swapped in when GraphRender ends
-; [ ] Fix rendering in 3D even in 2D mode.
 ; [ ] Add some kind of graphDirty flag for switching between trace and graph.
 ; [ ] Deal with split-screen flag.
+; [ ] Erase progress bars using a fill
+; [ ] Reset colors before possible error message in graph computation
+; [ ] Set default res to 17/27 when switching modes
 
 .echo "-----------------------\n"
 
@@ -266,7 +275,7 @@ MenuHookActive	.equ	6
 GraphHookActive	.equ	3
 _SetMenuHook	.equ	$5068
 _ClrMenuHook	.equ	$506B
-GraphHookPtr	.equ	$9E74
+GraphHookPtr	.equ	$9E75
 ;_SetGraphHook	.equ	$4F9C
 ;_ClrGraphHook	.equ	$4F9F
 mZoom			.equ	04h

@@ -286,4 +286,4 @@ sTotalProgress:
 ;   .db "12345678901234567890123456"
 	.db "Total: ",$C1,"                 ]",0
 sPartialProgress:
-	.db "Z1:    ",$C1,"                 ]",0
+	.db "Z",$81,":    ",$C1,"                 ]",0

@@ -329,12 +329,22 @@ Graph_Compute_EQ:
 		; Initialize progress bar
 		ld de,(bgcolor)
 		push de
+			; Draw the subscripted number for this equation
+			ld hl,(1*256) + 9
+			ld (CurRow),hl
+			ld a,(ParseVar + 2)
+			add a,$81-tZ1
+			bcall(_PutC)
+			; Set foreground and background to black
+			pop de
+		push de
 			ld c,e
 			ld b,d
 			call SetTextColors
+			; Now do the erase
+			ld a,0 + (25-PROGRESS_WIDTH)
+			ld (CurCol),a
 			ld b,PROGRESS_WIDTH
-			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
-			ld (CurRow),hl
 Graph_Compute_EQ_ClearProgressLoop:
 			ld a,$E0
 			push bc
@@ -1334,6 +1344,14 @@ Graph_Render_EQ_YMajor_Inner_Next:
 			jp nz,Graph_Render_EQ_YMajor_Inner
 			dec c
 			jp nz,Graph_Render_EQ_YMajor_Outer
+			; Fix color pointer
+			ld hl,(pgrid_colors)
+			ld a,(dim_x)
+			ld e,a
+			ld d,0
+			add hl,de
+			add hl,de
+			ld (pgrid_colors),hl
 Graph_Render_EQ_Next:
 			pop bc
 		inc c							; Next equation

@@ -138,9 +138,7 @@ ZoomOut3D:
 	ret
 	
 PostZoomContextSwitch:
-	ld a,kGraph
-	bcall(_NewContext)
-	bjump(_Mon)
+	bjump(_JForceGraphNoKey)
 
 ZOOM_MENU_CHOICES	.equ 3
 ZoomMenuTable:
