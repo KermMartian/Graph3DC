@@ -13,7 +13,13 @@
 ; [X] Handle errors in ParseInp
 ; [X] Fix rendering in 3D even in 2D mode.
 ; [X] Display proper Zn value next to progress bars
-; [ ] Explain what's happening while computation is happening
+; [X] Fix wrong RAM page swapped in when GraphRender ends
+; [X] Fix Window menu not triggering starting from Graph screen -> Now fix no lines appearing
+; [-] Fix spectrum colors coming out too dark -> Marked WONTFIX for now.
+; [-] Is graph getting drawn X-flipped? Y-flipped? -> Looks good.
+; [X] Try to improve precision when doing mapping to screen coords.
+; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
+; [ ] Explain what's happening while computation is underway
 ; [ ] Fix 2D graphing freezing after entering a 3D equation
 ; [ ] Implement Format menu
 ; [ ] Implement Tracing
@@ -23,13 +29,12 @@
 ; [ ] Lots of beta-testing!
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
-; [ ] Fix Window menu not triggering starting from Graph screen
-; [ ] Fix wrong RAM page swapped in when GraphRender ends
 ; [ ] Add some kind of graphDirty flag for switching between trace and graph.
 ; [ ] Deal with split-screen flag.
 ; [ ] Erase progress bars using a fill
 ; [ ] Reset colors before possible error message in graph computation
 ; [ ] Set default res to 17/27 when switching modes
+; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 
 .echo "-----------------------\n"
 
@@ -828,6 +833,7 @@ Graph_Erase:
 	sbc hl,de
 	jp nc,Graph_Clear_Screen					; Clear by filling
 	
+	call TrashRAM_SwapIn						; NB: CAN'T CALL OS ROUTINES UNTIL SWAPOUT!
 	ld hl,(bgcolor)
 	ld (fgcolor),hl
 	ld a,(axismode)
@@ -846,16 +852,13 @@ Graph_Erase:
 	call Graph_Render_FromOffsets
 @:
 	ld a,1
-	jp Graph_Render
+	call Graph_Render
+	call TrashRAM_SwapOut
+	ret
 ;============================================================
 Graph_Render_FromOffsets:
 	di
 	push iy
-		push bc
-			push hl
-				call TrashRAM_SwapIn
-				pop hl
-			pop bc
 Graph_Render_FromOffsets_Inner:
 		push bc
 			push hl
@@ -908,7 +911,6 @@ Graph_Render_FromOffsets_Inner:
 			inc hl
 			pop bc
 		djnz Graph_Render_FromOffsets_Inner
-		call TrashRAM_SwapOut
 		pop iy
 	ei
 	ret
@@ -1189,20 +1191,45 @@ Map_B_Points:
 		call cphlde_fp
 		jr c,Graph_Map_EQ_Inner_Cull
 		ex de,hl		;de = (val_z)
-		ld a,(FP_EZ*(5/4))>>8
-		ld b,(FP_EZ*(5/4))&$ff
+		ld a,(FP_EZ*(5/4))>>4			; Funky math here: FP_EZ*5/4 = 0x0140, val_z >= FP_EZ*(4/5), so get 4 more bits of precision
+		ld b,((FP_EZ*(5/4))<<4)&$ff
 		ld c,0
 		call signed_divabcde			; returns result in abc (a.bc/d.e = ab.c)
 		push bc
 			ld de,(val_x)
-			call signed_multbcde_fp
+			call signed_multbcde			; result is dHdLeHeLhH.hLlHlL because of <<4 in FP_EZ
+			sla h							; move dLeHeLhH into de
+			rl e
+			rl d
+			sla h
+			rl e
+			rl d
+			sla h
+			rl e
+			rl d
+			sla h
+			rl e
+			rl d
 			ld hl,(MapFactorX)					;256*[0.625+(dx-ex)/((5/4)*ez/dz)] = 256*(5/4)*[0.5+(dx-ex)/(ez/dz)] 
 			call addhlde_fp						; = 320*[0.5+(dx-ex)/(ez/dz)]
-			;de*256 is the int, so just take d.e and put it diretly in (sx)
+			;de*256 is the int, so just take d.e and put it directly in (sx)
+			; Not quite! Now we need to shift 4x, because of the precision trick above.
 			ld (sx),hl
 			pop bc
 		ld de,(val_y)
-		call signed_multbcde_fp
+		call signed_multbcde			; result is dHdLeHeLhH.hLlHlL because of <<4 in FP_EZ
+		sla h							; move dLeHeLhH into de
+		rl e
+		rl d
+		sla h
+		rl e
+		rl d
+		sla h
+		rl e
+		rl d
+		sla h
+		rl e
+		rl d
 		ld hl,(0.5*(5/4))*INT_TO_8P8
 		call addhlde_fp
 		ex de,hl

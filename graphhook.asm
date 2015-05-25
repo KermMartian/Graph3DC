@@ -922,6 +922,7 @@ Graph_Compute_EQ_Error_DoError:
 	push af
 		ld a,tUn
 		ld (parseVar + 2),a
+		call TrashRAM_SwapOut
 		pop af
 	bjump(_JError)
 ;-----------------------------------
@@ -1070,13 +1071,9 @@ Graph_Redraw:
 	; Center was set above, (ex, ey); FP_EZ is a constant
 	; Ready to transform 3D coordinates into screen coordinates and display
 
-	call TrashRAM_SwapOut
-Graph_Draw_Redraw:
 	xor a
 	call Graph_Render
 	
-	call TrashRAM_SwapIn
-
 	ld hl,axes_x
 	ld (pgrid_x),hl
 	ld hl,axes_y
@@ -1118,7 +1115,6 @@ Graph_Draw_Redraw_NoBounds:
 ;-----------------------------------
 Graph_Render:
 	ld (erase_mode),a
-	call TrashRAM_SwapIn
 
 	; Initialize pointers into big stored data chunks
 	ld hl,grid_x
@@ -1359,7 +1355,6 @@ Graph_Render_EQ_Next:
 		jp nz,Graph_Render_EQ
 		pop iy
 	ei
-
-	jp TrashRAM_SwapOut
+	ret
 
 ;-----------------------------------
