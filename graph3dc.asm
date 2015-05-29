@@ -18,6 +18,16 @@
 ; [-] Fix spectrum colors coming out too dark -> Marked WONTFIX for now.
 ; [-] Is graph getting drawn X-flipped? Y-flipped? -> Looks good.
 ; [X] Try to improve precision when doing mapping to screen coords.
+; ------v----New items----v------
+; [X] Add ZoomFact to Window menu
+; [-] Remove step_x / step_y? -> Still need for fixed-point X and Y computation
+; [X] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg? -> Saved ~14% time for 289 points
+; [X] Don't use ScaleFactor to scale ZoomFact in Window menu (x2)
+; [X] Fix looping menu <> graph after using the Zoom menu
+; [X] Consider averaging point colors for line colors -> Thanks to Runer112 for working through this with me and writing an optimized version
+; [ ] Experiment with the regraph hook for v--- this
+; [ ] Fix rendering when you leave via a menu and then return
+; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Explain what's happening while computation is underway
 ; [ ] Fix 2D graphing freezing after entering a 3D equation
@@ -28,7 +38,6 @@
 ; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
 ; [ ] Lots of beta-testing!
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
-; [ ] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg?
 ; [ ] Add some kind of graphDirty flag for switching between trace and graph.
 ; [ ] Deal with split-screen flag.
 ; [ ] Erase progress bars using a fill
@@ -117,6 +126,10 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var fp8.8, sub_max_y
 .var fp8.8, sub_max_z
 .var fp8.8, val_zero
+.var byte[9], deltaX_OS
+.var byte[9], deltaY_OS
+.var byte[9], minX_OS
+.var byte[9], minY_OS
 
 .var word, sx
 .var word, sy
@@ -254,20 +267,34 @@ trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
 ;IvtLocation	.equ	080h ; vector table at 8000h
 ;IsrLocation	.equ	085h ; ISR at 8585h
 
-; OS Equates
-APIFlg			equ 28h
-appAllowContext		equ 0           ;App wants context changes to happen
-_SetAppChangeHook = 5011h
-_ClrAppChangeHook =	5014h
-appChangeHookPtr .equ	09E91h
+; OS Equates - Hooks
 hookflags2		.equ 	34h
 hookflags3		.equ 	35h ;also sysHookFlg1
 hookflags4		.equ	36h
-yEqualsHookPtr	.equ	09E79h
+_SetAppChangeHook = 5011h
+_ClrAppChangeHook =	5014h
 _SetYEquHook	.equ	4FB4h
 _ClrYEquHook	.equ	4FB7h
-yEquHookActive	.equ 	4		;1 = Y= hook active
+_SetMenuHook	.equ	$5068
+_ClrMenuHook	.equ	$506B
+;_SetGraphHook	.equ	$4F9C
+;_ClrGraphHook	.equ	$4F9F
+_SetTraceHook	.equ	$4FD8
+_ClrTraceHook	.equ	$4FDC
+appChangeHookPtr .equ	09E91h
+yEqualsHookPtr	.equ	09E79h
+MenuHookPtr		.equ	$9EA1
+GraphHookPtr	.equ	$9E75
+TraceHookPtr	.equ	$9E89
 appChangeHookActive .equ 2
+yEquHookActive	.equ 	4		;1 = Y= hook active
+MenuHookActive	.equ	6
+GraphHookActive	.equ	3
+traceHookActive	.equ	0					; In hookflags4
+
+; OS Equates - Other
+APIFlg			equ 28h
+appAllowContext		equ 0           ;App wants context changes to happen
 monQueue		.equ	$8669
 PlotEnabled1	.equ	$9812
 PlotEnabled2	.equ	$9824
@@ -275,14 +302,6 @@ PlotEnabled3	.equ	$9836
 menuCurCol		.equ	$9d83
 _ClearAppTitle	.equ	5056h
 _maybe_MonRestart .equ	$4fba
-MenuHookPtr		.equ	$9EA1
-MenuHookActive	.equ	6
-GraphHookActive	.equ	3
-_SetMenuHook	.equ	$5068
-_ClrMenuHook	.equ	$506B
-GraphHookPtr	.equ	$9E75
-;_SetGraphHook	.equ	$4F9C
-;_ClrGraphHook	.equ	$4F9F
 mZoom			.equ	04h
 mZoom3D			.equ	94h
 fastSpeed		.equ	5
@@ -643,6 +662,38 @@ appChangeHook_CheckGraph:
 				call GetCurrentPage
 				ld hl,GraphHook
 				bcall(_SetGraphHook)
+
+				; Back up the current RegraphHook
+				ld a,SETTINGS_HOOKBACK_REGR
+				call LTS_GetPtr						;to hl
+				ld de,RegraphHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags3)			; contains MenuHookActive
+				and 1 << RegraphHookActive
+				ld (de),a
+				
+				; Set up new Graph hook
+				call GetCurrentPage
+				ld hl,RegraphHook
+				bcall(_SetRegraphHook)
+
+				; Back up the current TraceHook
+				ld a,SETTINGS_HOOKBACK_TRACE
+				call LTS_GetPtr						;to hl
+				ld de,TraceHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags4)			; contains MenuHookActive
+				and 1 << TraceHookActive
+				ld (de),a
+				
+				; Set up new Graph hook
+				call GetCurrentPage
+				ld hl,TraceHook
+				bcall(_SetTraceHook)
 
 #ifdef false
 				; Back up the current RawKeyHook

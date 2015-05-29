@@ -75,6 +75,8 @@ KeyHook_Graph_Rerotate:
 	ret
 
 ;-----------------------------------
+
+;-----------------------------------
 Graph_Setup:
 	; Basic setup stuff
 	call SetSpeedFast
@@ -295,6 +297,61 @@ Graph_CountEQs_Loop_NotEnabled:
 	ld hl,grid_z
 	ld (pgrid_z),hl
 
+	; Pre-compute deltaX and deltaY
+	; - min X
+	ld hl,(min_x)
+	call FPtoOP1_scaled
+	ld hl,OP1
+	ld de,minX_OS
+	call OPXtoOPX
+	; - max X
+	ld hl,(max_x)
+	call FPtoOP1_scaled
+	ld hl,minX_OS
+	ld de,OP2
+	call OPXtoOPX
+	bcall(_FPSub)
+	; - delta X
+	bcall(_PushOP1)
+	ld a,(dim_x)
+	dec a
+	ld h,a
+	ld l,0
+	call FPtoOP1		; Not scaled
+	call OP1toOP2
+	bcall(_PopOP1)
+	bcall(_FPDiv)
+	ld hl,OP1
+	ld de,deltaX_OS
+	call OPXtoOPX
+
+	; - min Y
+	ld hl,(min_y)
+	call FPtoOP1_scaled
+	ld hl,OP1
+	ld de,minY_OS
+	call OPXtoOPX
+	; - max Y
+	ld hl,(max_y)
+	call FPtoOP1_scaled
+	ld hl,minY_OS
+	ld de,OP2
+	call OPXtoOPX
+	bcall(_FPSub)
+	; - delta Y
+	bcall(_PushOP1)
+	ld a,(dim_Y)
+	dec a
+	ld h,a
+	ld l,0
+	call FPtoOP1		; Not scaled
+	call OP1toOP2
+	bcall(_PopOP1)
+	bcall(_FPDiv)
+	ld hl,OP1
+	ld de,deltaY_OS
+	call OPXtoOPX
+
 	;Iterate over all equations
 #ifdef DEBUG_GRAPH
 	ld b,1
@@ -357,6 +414,15 @@ Graph_Compute_EQ_ClearProgressLoop:
 		xor a
 		ld (thisXiters),a
 		; Note! _PutC messes this up.
+		
+		; Must do this with normal OS RAM swapped in
+		ld hl,minX_OS
+		rst 20h
+		bcall(_StoX)
+		ld hl,minY_OS
+		rst 20h
+		bcall(_StoY)
+
 		call TrashRAM_SwapIn
 		
 		; Begin the actual calculations
@@ -427,26 +493,6 @@ Graph_Compute_EQ_Inner:
 			; of sanity is key.
 			call TrashRAM_SwapOut
 
-			; Generate X value
-			ld hl,(val_x)
-			call FPtoOP1
-			call OP1toOP4
-			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
-			call FPtoOP1
-			call OP4toOP2
-			bcall(_FPMult)
-			bcall(_StoX)
-
-			; Generate Y value
-			ld hl,(val_y)
-			call FPtoOP1
-			call OP1toOP4
-			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
-			call FPtoOP1
-			call OP4toOP2
-			bcall(_FPMult)
-			bcall(_StoY)
-
 			; Generate Z value
 			ld hl,ParseVar
 			rst 20h
@@ -492,6 +538,14 @@ Graph_Compute_EQ_Inner_SwapAndStore:
 			call MinHLDE
 			ld (val_min_z),hl
 Graph_Compute_EQ_Inner_SkipMinMax:
+			; Update Y
+			bcall(_RclY)
+			ld hl,deltaY_OS
+			ld de,OP2
+			call OPXtoOPX
+			bcall(_FPAdd)
+			bcall(_StoY)
+
 			pop bc
 		dec b
 		jp nz,Graph_Compute_EQ_Inner
@@ -500,6 +554,19 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			; Note! _PutC messes this up.
 			call TrashRAM_SwapOut
 			
+			; Update X
+			bcall(_RclX)
+			ld hl,deltaX_OS
+			ld de,OP2
+			call OPXtoOPX
+			bcall(_FPAdd)
+			bcall(_StoX)
+
+			; Get Y ready
+			ld hl,minY_OS
+			call OPXtoOP1
+			bcall(_StoY)
+
 			; Display some progress for this equation
 			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
 			ld (CurRow),hl
@@ -1177,13 +1244,22 @@ Graph_Render_EQ_XMajor_Outer:
 						dec b
 Graph_Render_EQ_XMajor_Inner:
 						push bc
+							; Load first endpoint's color
 							ld hl,(pgrid_colors)
 							ld e,(hl)
 							inc hl
 							ld d,(hl)
 							inc hl
 							ld (pgrid_colors),hl
-							push de
+							; Load second endpoint's color
+							ld a,(hl)
+							inc hl
+							ld h,(hl)
+							ld l,a
+							; Average the two colors
+							call AverageRGB565
+							; Color is ready!
+							push hl
 								pop iy
 							ld hl,(pgrid_sx)
 							ld e,(hl)
@@ -1270,17 +1346,30 @@ Graph_Render_EQ_YMajor_Inner:
 				ld d,(hl)
 				inc hl
 				ld (pgrid_colors),hl
-				push de
-					pop iy
-				ld hl,(pgrid_sx)
-				ld e,(hl)
-				inc hl
-				ld d,(hl)
-				inc hl
-				ld (pgrid_sx),hl
+				; Load second endpoint's color
 				ld a,(dim_x)
 				ld c,a
 				ld b,0
+				push bc
+					add hl,bc
+					add hl,bc
+					dec hl
+					ld a,(hl)
+					dec hl
+					ld l,(hl)
+					ld h,a
+					; Average the two colors
+					call AverageRGB565
+					; Color is ready!
+					push hl
+						pop iy
+					ld hl,(pgrid_sx)
+					ld e,(hl)
+					inc hl
+					ld d,(hl)
+					inc hl
+					ld (pgrid_sx),hl
+				pop bc
 				add hl,bc
 				add hl,bc
 				dec hl

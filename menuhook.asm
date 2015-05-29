@@ -138,6 +138,7 @@ ZoomOut3D:
 	ret
 	
 PostZoomContextSwitch:
+	bcall(_MenCatRet)
 	bjump(_JForceGraphNoKey)
 
 ZOOM_MENU_CHOICES	.equ 3

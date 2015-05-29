@@ -333,6 +333,17 @@ FPtoOP1:
 	bcall(_InvOP1S)
 	ret
 
+; Loads hl to OP1, scaled by scalefactor.
+; Destroys OP1 and OP4
+FPtoOP1_scaled:
+	call FPtoOP1
+	call OP1toOP4
+	ld hl,(scalefactor)
+	call FPtoOP1
+	call OP4toOP2
+	bcall(_FPMult)
+	ret
+
 OP1toFP:
 	ld hl,OP1
 	ld a,(hl)
@@ -441,5 +452,32 @@ ErrDataType:
 cphlbc:
 	or a
 	sbc hl,bc
+	add hl,bc
+	ret
+
+; Calculates the average of the BGR565 (or RGB565) colors in DE and HL into HL.
+;    I: DE=color1, HL=color2
+;    O: A=color1&$FF&~(1<<5+1), BC=color1&color2&(1<<6+1<<5+1),
+;       DE=color1&~(1<<6+1<<5+1), HL=average(color1,color2)
+;   FO: SZP(L), C=0
+;   CC: 125
+AverageRGB565:
+	ld a,d
+	and h
+	and 1<<(6+5-8)
+	ld b,a
+	ld a,e
+	and l
+	and (1<<5)+1
+	ld c,a
+	res (6+5)&7,d
+	ld a,e
+	and ~((1<<5)+1)
+	ld e,a
+	res (6+5)&7,h
+	res 5,l
+	add hl,de
+	rr h
+	rr l
 	add hl,bc
 	ret

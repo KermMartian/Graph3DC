@@ -77,7 +77,11 @@ windowHook_GetValueToOp1:
 	cp 5
 	jr z,windowHook_LoadSimpleByte
 
-	call FPtoOP1
+	push af
+		call FPtoOP1
+		pop af
+	cp 6
+	jr z,windowHook_LoadDone			;ie, don't scale it
 	bcall(_OP1toOP4)
 	ld a,SETTINGS_AVOFF_SCALEF
 	call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
@@ -117,6 +121,8 @@ windowHook_SaveOp1toValue:
 
 	;val = (init * scalefactor) -> init = val / scalefactor
 	push hl
+		cp 6
+		jr z,windowHook_SaveOp1toValue_NoScale
 		bcall(_OP1toOP4)
 		ld a,SETTINGS_AVOFF_SCALEF
 		call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
@@ -124,6 +130,7 @@ windowHook_SaveOp1toValue:
 		bcall(_OP1toOP2)
 		bcall(_OP4toOP1)
 		bcall(_FPDiv)
+windowHook_SaveOp1toValue_NoScale:
 		call OP1toFP
 		pop de
 	ex de,hl
