@@ -40,9 +40,7 @@ MenuHook_NotSelected3D:
 ZoomHook_RetZReset:
 	or $ff
 	ret
-ZoomHook_RetZSet:
-	cp a
-	ret
+
 ZoomHook_Not0:
 	dec a
 	jr nz,ZoomHook_Not1
@@ -53,6 +51,35 @@ ZoomHook_Not0:
 	ld (menuCurrent),a
 	jr ZoomHook_RetZSet
 ZoomHook_Not1:
+	sub 2
+	jr nz,ZoomHook_Not3
+	; The following code re-draws the graph if we left the graph via a menu
+	; and are now returning to the graph
+	ld a,b
+	or a
+	jr nz,ZoomHook_Not3
+	call LTS_CacheAV
+	ld a,SETTINGS_AVOFF_MODE
+	call LTS_GetByte
+	or a
+	ret z					; 3D mode is not enabled
+	;bcall(_MenCatRet)		; This has too many side effects; replaced with the following
+	xor a
+	ld hl,menuCurrent
+	ld (hl),a
+	inc hl
+	ld (hl),a
+	inc hl
+	ld (hl),a
+	
+	call SetSpeedFast
+	call Graph_Clear_Screen			; calls DisplayNormal
+	call Graph_Redraw
+	call DisplayOrg
+	bjump(_Mon)
+
+ZoomHook_Not3:
+ZoomHook_RetZSet:
 	cp a
 	ret
 

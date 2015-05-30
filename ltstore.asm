@@ -83,7 +83,7 @@ LTS_CreateAV:
 #else
 	ld (hl),0				; Offset 5:		High-res mode
 #endif
-	ld de,SETTINGS_MAXEQS - SETTINGS_AVOFF_HIRES
+	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_HIRES
 	add hl,de
 #ifdef DEBUG_HIRES
 	ld (hl),MAX_EQS_HI

@@ -972,7 +972,7 @@ InitZEquations_Loop_Exists:
 	ret
 ;--------------------------------------------------
 CheckEnabled_Setup:
-	ld a,SETTINGS_MAXEQS
+	ld a,SETTINGS_AVOFF_MAXEQS
 	call LTS_GetByte
 	ld b,a
 	ld c,tZ1

@@ -25,8 +25,8 @@
 ; [X] Don't use ScaleFactor to scale ZoomFact in Window menu (x2)
 ; [X] Fix looping menu <> graph after using the Zoom menu
 ; [X] Consider averaging point colors for line colors -> Thanks to Runer112 for working through this with me and writing an optimized version
-; [ ] Experiment with the regraph hook for v--- this
-; [ ] Fix rendering when you leave via a menu and then return
+; [-] Experiment with the regraph hook for v--- this
+; [X] Fix rendering when you leave via a menu and then return
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Explain what's happening while computation is underway
@@ -234,9 +234,12 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_MONVECBACK		32				;13 bytes - Monitor vector backup
 #define SETTINGS_HOOKBACK_APP	45				;4 bytes  - AppChangeHook backup
 #define SETTINGS_HOOKBACK_MENU	49				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_GRPH	53				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_GRPH	53				;4 bytes  - GraphHook backup
 #define SETTINGS_HOOKBACK_KEY	57				;4 bytes  - KeyHook backup
-#define SETTINGS_MAXEQS			61				;1 byte
+#define SETTINGS_HOOKBACK_REGR	61				;4 bytes  - RegraphHook backup
+#define SETTINGS_HOOKBACK_TRACE	65				;4 bytes  - TraceHook backup
+#define SETTINGS_AVOFF_MAXEQS	69				;1 byte
+#define SETTINGS_AVOFF_TRACE	70				;1 byte   - 1 if tracing, 0 otherwise
 
 capacity_3d_el = sMAX(MAX_EQS * MAX_XY_RES * MAX_XY_RES, MAX_EQS_HI * MAX_XY_RES_HI * MAX_XY_RES_HI)
 capacity_2d_el = sMAX(MAX_XY_RES * MAX_XY_RES, MAX_XY_RES_HI * MAX_XY_RES_HI)
@@ -279,8 +282,8 @@ _SetMenuHook	.equ	$5068
 _ClrMenuHook	.equ	$506B
 ;_SetGraphHook	.equ	$4F9C
 ;_ClrGraphHook	.equ	$4F9F
-_SetTraceHook	.equ	$4FD8
-_ClrTraceHook	.equ	$4FDC
+;_SetTraceHook	.equ	$4FD8
+;_ClrTraceHook	.equ	$4FDB
 appChangeHookPtr .equ	09E91h
 yEqualsHookPtr	.equ	09E79h
 MenuHookPtr		.equ	$9EA1
@@ -644,9 +647,19 @@ appChangeHook_CheckWindow:
 				jr appChangeHook_Done
 
 appChangeHook_CheckGraph:
+				ld b,1
+				cp kTrace
+				jr z,appChangeHook_GoGraph
+				dec b
 				cp kGraph
 				jr nz,appChangeHook_Invalid
-
+appChangeHook_GoGraph:
+				push bc
+					ld a,SETTINGS_AVOFF_TRACE
+					call LTS_GetPtr					;to hl
+					pop af
+				ld (hl),a							;Whether tracing is enabled
+				
 				; Back up the current GraphHook
 				ld a,SETTINGS_HOOKBACK_GRPH
 				call LTS_GetPtr						;to hl
@@ -662,38 +675,6 @@ appChangeHook_CheckGraph:
 				call GetCurrentPage
 				ld hl,GraphHook
 				bcall(_SetGraphHook)
-
-				; Back up the current RegraphHook
-				ld a,SETTINGS_HOOKBACK_REGR
-				call LTS_GetPtr						;to hl
-				ld de,RegraphHookPtr
-				ex de,hl
-				ld bc,3
-				ldir
-				ld a,(flags + hookflags3)			; contains MenuHookActive
-				and 1 << RegraphHookActive
-				ld (de),a
-				
-				; Set up new Graph hook
-				call GetCurrentPage
-				ld hl,RegraphHook
-				bcall(_SetRegraphHook)
-
-				; Back up the current TraceHook
-				ld a,SETTINGS_HOOKBACK_TRACE
-				call LTS_GetPtr						;to hl
-				ld de,TraceHookPtr
-				ex de,hl
-				ld bc,3
-				ldir
-				ld a,(flags + hookflags4)			; contains MenuHookActive
-				and 1 << TraceHookActive
-				ld (de),a
-				
-				; Set up new Graph hook
-				call GetCurrentPage
-				ld hl,TraceHook
-				bcall(_SetTraceHook)
 
 #ifdef false
 				; Back up the current RawKeyHook
@@ -713,7 +694,7 @@ appChangeHook_CheckGraph:
 				bcall(_SetRawKeyHook)
 #endif
 
-				jr appChangeHook_Done
+				jp appChangeHook_Done
 
 CleanTempHooks:
 	;WindowHook
@@ -1322,6 +1303,7 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "yequhook.asm"
 #include "menuhook.asm"
 #include "graphhook.asm"
+#include "graphfuncs.asm"
 #include "bigicon.inc"
 #include "data.inc"
 
