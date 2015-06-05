@@ -288,3 +288,13 @@ sTotalProgress:
 	.db "Total: ",$C1,"                 ]",0
 sPartialProgress:
 	.db "Z",$81,":    ",$C1,"                 ]",0
+
+TraceCursor:
+	.db %00111000
+	.db %01111100
+	.db %11000110
+	.db %11000110
+	.db %11000110
+	.db %01111100
+	.db %00111000
+	.db %00000000

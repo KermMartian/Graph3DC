@@ -76,8 +76,8 @@ NUM_PAGES = 1
 
 #define sMAX(a,b) (((a) > (b))?0+(a):0+(b))		; Static max function
 
-temp1	.equ cmdShadow
-temp2	.equ $8585+3	; part of textShadow; leave space for ISR
+temp1	.equ cmdShadow	; 260 bytes
+temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 bytes
 
 .varloc temp1, 260
 
@@ -140,6 +140,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var byte, axismode
 .var byte, dim_x
 .var byte, dim_y
+.var byte, trace_x
+.var byte, trace_y
 .var byte, ateq
 
 ; The following used for lines and points
@@ -172,6 +174,10 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 .var word, paxes_x				;Pointer to variable data	20*2
 .var word, paxes_y				;Pointer to variable data	20*2
 .var word, paxes_z				;Pointer to variable data	20*2
+
+.varloc temp2, (textShadow+260) - temp2
+.var byte[7*8*2], traceCursorBack
+.var byte[4], traceCursorPalette
 
 ; Constants
 #define OUT_LEFT 1
@@ -236,8 +242,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR
 #define SETTINGS_HOOKBACK_MENU	49				;4 bytes  - MenuHook backup
 #define SETTINGS_HOOKBACK_GRPH	53				;4 bytes  - GraphHook backup
 #define SETTINGS_HOOKBACK_KEY	57				;4 bytes  - KeyHook backup
-#define SETTINGS_HOOKBACK_REGR	61				;4 bytes  - RegraphHook backup
-#define SETTINGS_HOOKBACK_TRACE	65				;4 bytes  - TraceHook backup
+#define SETTINGS_HOOKBACK_REDISP 61				;4 bytes  - cxRedispHook backup
+#define SETTINGS_HOOKBACK_XXXX	65				;4 bytes  - NOT USED backup
 #define SETTINGS_AVOFF_MAXEQS	69				;1 byte
 #define SETTINGS_AVOFF_TRACE	70				;1 byte   - 1 if tracing, 0 otherwise
 
@@ -289,11 +295,13 @@ yEqualsHookPtr	.equ	09E79h
 MenuHookPtr		.equ	$9EA1
 GraphHookPtr	.equ	$9E75
 TraceHookPtr	.equ	$9E89
+cxRedispHookPtr	.equ	$9E9D
 appChangeHookActive .equ 2
 yEquHookActive	.equ 	4		;1 = Y= hook active
 MenuHookActive	.equ	6
 GraphHookActive	.equ	3
 traceHookActive	.equ	0					; In hookflags4
+cxRedispHookActive .equ 5					; In hookflags4
 
 ; OS Equates - Other
 APIFlg			equ 28h
@@ -394,10 +402,10 @@ ProgramStart_appInstalled:
 		bcall(_ClrLCDFull)
 		bcall(_HomeUp)
 		call DisplayAppTitle
+		call DisplayNormal
 		ld de,14
 		ld hl,40
 		ld ix,bigicon
-		call DisplayNormal
 		call DrawSprite_4Bit_Enlarge
 		call DisplayOrg
 		ld hl,1+(8*256)
@@ -692,6 +700,22 @@ appChangeHook_GoGraph:
 				call GetCurrentPage
 				ld hl,GraphKeyHook
 				bcall(_SetRawKeyHook)
+
+				; Back up the current cxRedispHook
+				ld a,SETTINGS_HOOKBACK_REDISP
+				call LTS_GetPtr						;to hl
+				ld de,cxRedispHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags4)			; contains MenuHookActive
+				and 1 << cxRedispHookActive
+				ld (de),a
+				
+				; Set up new cxRedispHook
+				call GetCurrentPage
+				ld hl,cxRedispHook
+				bcall(_SetcxRedispHook)
 #endif
 
 				jp appChangeHook_Done
@@ -719,6 +743,12 @@ CleanTempHooks:
 	ld de,RawKeyHookPtr+2
 	ld bc,($ff^(1 << RawKeyHookActive))*256 + SETTINGS_HOOKBACK_KEY
 	ld hl,flags + hookflags2
+	call DisableHook
+
+	;RawKeyHook
+	ld de,cxRedispHookPtr+2
+	ld bc,($ff^(1 << cxRedispHookActive))*256 + SETTINGS_HOOKBACK_REDISP
+	ld hl,flags + hookflags4
 	call DisableHook
 
 	ret

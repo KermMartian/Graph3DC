@@ -7,9 +7,13 @@ Graph_Setup:
 	call LTS_GetPtr
 	ld a,(hl)				; Offset SETTINGS_AVOFF_XDIM
 	ld (dim_x),a
+	srl a
+	ld (trace_x),a
 	inc hl
 	ld a,(hl)				; Offset SETTINGS_AVOFF_YDIM
 	ld (dim_y),a
+	srl a
+	ld (trace_y),a
 	inc hl
 	ld e,(hl)				; Offset SETTINGS_AVOFF_SCALEF
 	inc hl
@@ -37,6 +41,8 @@ Graph_Setup:
 	inc hl
 	ld d,(hl)
 	ld (max_y),de
+	xor a
+	ld (ateq),a
 
 	ld a,SETTINGS_AVOFF_AXISMODE
 	call LTS_GetPtr

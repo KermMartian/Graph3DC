@@ -72,10 +72,7 @@ ZoomHook_Not1:
 	inc hl
 	ld (hl),a
 	
-	call SetSpeedFast
-	call Graph_Clear_Screen			; calls DisplayNormal
-	call Graph_Redraw
-	call DisplayOrg
+	call GraphRedisp
 	bjump(_Mon)
 
 ZoomHook_Not3:

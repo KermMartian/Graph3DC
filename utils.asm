@@ -306,25 +306,28 @@ ColorPixel:
 setLCDRegister_SaveC:
 	; a = register
 	; hl = value
-	out ($10),a \ out ($10),a
-	ld a,h \ out ($11),a
-	ld a,l \ out ($11),a
+	out ($10),a
+	out ($10),a
+	ld a,h
+	out ($11),a
+	ld a,l
+	out ($11),a
 	ret
 
 DisplayOrg:
-	ld	a,3		; adjust origin drawing mode
-	ld	hl,$1038
-	call	Write_Display_Control
+	ld a,3		; adjust origin drawing mode
+	ld hl,$1038
+	call Write_Display_Control
 	jr	Full_Window
 	
 DisplayNormal:
-	ld	a,3		; normal drawing mode
-	ld	hl,$10B8
-	call	Write_Display_Control
+	ld a,3		; normal drawing mode
+	ld hl,$10B8
+	call Write_Display_Control
 	
 Full_Window:
-	ld	a,$50		; Set minimum Y
-	ld	hl,0
+	ld a,$50		; Set minimum Y
+	ld hl,0
 	call	Write_Display_Control
 	
 	inc	a		; Set maximum Y
@@ -420,29 +423,18 @@ DrawSprite_CheckAndLoad:
 	scf					;Set carry flag!
 	ret
 
-;OLD: ix -> palette, b = x, l = y, de -> sprite	
-;NEW: de=x, hl=y, 
-;NEW: ix=sprite (.dw palette \ .db width, height \ .db bitpacked_padded_rows)
-DrawSprite_1Bit:
-	call DrawSprite_CheckAndLoad
-	ret nc
-
-;IMPORTANT NOTE: DrawSprite_1Bit_Pal skips the X/Y validity check
-DrawSprite_1Bit_Pal:
-;bc=palette, de=x, hl=y, 
-;ix=sprite (.db width, height \ .db bitpacked_padded_rows)
-
-	call DrawSprite_OffscreenCheck
+DrawSprite_1Bit_SaveBuf:
+;bc->palette, de=x, hl=y, iy->save buffer
+;ix->sprite (.db width, height \ .db bitpacked_padded_rows)
+; Must check that coordinates are not offscreen manually!
+	push bc
+		call DrawSprite_OffscreenCheck		; hl no longer needed after this
+		pop hl
 	ret c
 	ret nz			;DrawSprite_OffscreenCheck returns z on success
 
 	ld a,(de)
 	ld c,a
-;	dec c
-;	srl c
-;	srl c
-;	srl c
-;	inc c
 	inc de
 	ld a,(de)
 	ld b,a
@@ -458,6 +450,12 @@ Draw_Sprite_1Bit_PackedLine:
 		inc de
 		ld c,8
 Draw_Sprite_1Bit_PackedLine_Bit_NoNewByte:
+		in a,($11)
+		in a,($11)
+		in a,($11)
+		ld (iy),a
+		in a,($11)
+		ld (iy),a
 		rlc a
 		push ix
 			pop hl
