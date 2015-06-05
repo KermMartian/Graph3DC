@@ -290,6 +290,7 @@ sPartialProgress:
 	.db "Z",$81,":    ",$C1,"                 ]",0
 
 TraceCursor:
+	.db 8,8
 	.db %00111000
 	.db %01111100
 	.db %11000110

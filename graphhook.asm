@@ -1,27 +1,12 @@
-GraphHook:
-	.db $83
-	; Don't chain the graph hook here.  That would be silly.
-	; It's only enabled if we're in 3D mode, anyway.
-	push af
-		push bc
-			call LTS_CacheAV
-			pop bc
-		pop af
-	or a
-	jr nz,GraphHook_Not0
+cxInit_3DGraph:
+	call LTS_CacheAV
 	call Graph_Setup
 	call DisplayOrg
 	set graphDraw,(iy+graphFlags)
-	cp a
 	ret
 
-GraphHook_Not0:
-	cp 6
-	jr z,GraphKeyHook
-
-	cp 7				; OS about to draw graph
-	jr nz,GraphHook_RetZSet
-
+cxRedisp_3DGraph:
+	call LTS_CacheAV
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
 	call Graph_Recompute
@@ -31,18 +16,12 @@ GraphHook_Not0:
 	call Graph_Redraw
 	call DisplayOrg
 	res graphDraw,(iy+graphFlags)
-	
-	or $ff
-	ret
-	
-GraphHook_RetZSet:
-	cp a
 	ret
 	
 ;-----------------------------------
-GraphKeyHook:
-	;Note that AV location is cached once we get here
+cxMain_3DGraph:
 	push bc
+		call LTS_CacheAV
 		ld a,SETTINGS_AVOFF_TRACE
 		call LTS_GetByte
 		or a
@@ -69,11 +48,7 @@ GraphKeyHook_Graph:
 	call LTS_GetPtr
 	ld (hl),1
 	call DrawTraceCursor
-	jr KeyHook_Graph_NoKey
-GraphKeyHook_OtherKey:
-	cp a
-	ret
-	;jp Menu_4_Redraw
+	ret								; No key
 KeyHook_Graph_RetQuit:
 	bjump(_JForceCmdNoChar)
 KeyHook_Graph_StoreAlpha:
@@ -91,9 +66,14 @@ KeyHook_Graph_Rerotate:
 	call Graph_Redraw
 	call DisplayOrg
 	res graphDraw,(iy+graphFlags)
-KeyHook_Graph_NoKey:
-	or $ff						; Do not do default behavior for this key
-	ret
+GraphKeyHook_OtherKey:
+	cp kClear
+	jr nz,KeyHook_Graph_NotClear
+	bjump(_JForceCmdNoChar)
+KeyHook_Graph_NotClear:
+	cp echoStart1
+	ret c
+	bjump(_JForceCmd)
 ;-----------------------------------
 GraphKeyHook_Trace:
 	push af
@@ -121,13 +101,13 @@ GraphKeyHook_Trace:
 	ld (hl),0
 	; No need to erase Trace cursor here
 	call GraphRedisp
-	jr KeyHook_Graph_NoKey
+	ret											; No key
 KeyHook_Trace_Up:
 KeyHook_Trace_Down:
 KeyHook_Trace_Left:
 KeyHook_Trace_Right:
 	call DrawTraceCursor
-	jr KeyHook_Graph_NoKey
+	ret
 ;-----------------------------------
 GraphRedisp:
 	call SetSpeedFast
@@ -135,6 +115,21 @@ GraphRedisp:
 	call Graph_Redraw
 	jp DisplayOrg
 ;-----------------------------------
+GraphCursorHook:
+	.db $83
+	cp $22
+	jr z,GraphCursorHook_Flash
+	cp $24
+	jr nz,GraphCursorHook_NoFlash
+GraphCursorHook_Flash:
+	call LTS_CacheAV
+	ld a,SETTINGS_AVOFF_TRACE
+	call LTS_GetByte
+	or a
+	ret z
+	bit curOn,(iy+curFlags)
+	jr nz,EraseTraceCursor
+	; It's off: draw the cursor
 DrawTraceCursor:
 	ld hl,traceCursorPalette
 	push hl
@@ -152,18 +147,23 @@ DrawTraceCursor:
 	di
 	push iy
 		ld iy,traceCursorBack
+		ld ix,TraceCursor
 		call DrawSprite_1Bit_SaveBuf
 		pop iy
 	ei
-	ret
+	set curOn,(iy+curFlags)
+	jr GraphCursorHook_NoFlash
 
 ; Uses (trace_x) and (trace_y) to get sx->de and sy->hl
 EraseTraceCursor:
 	call GetTraceCoords
-	ld bc,traceCursorBack
-	;call DrawSprite_16Bit
+	ld ix,traceCursorBack
+	call DrawSprite_16Bit
+	res curOn,(iy+curFlags)
+GraphCursorHook_NoFlash:
+	cp a
 	ret
-	
+
 GetTraceCoords:
 	call TrashRAM_SwapIn
 	ld a,(dim_x)
@@ -216,9 +216,24 @@ GetTraceCoords:
 		ld e,(hl)
 		inc hl
 		ld d,(hl)
+		dec de
+		dec de
+		dec de					; Move the pixel to the center of the 7x7 sprite
 		pop hl
 	ld a,(hl)
 	inc hl
 	ld h,(hl)
 	ld l,a
+	dec hl
+	dec hl
+	dec hl						; Move the pixel to the center of the 7x7 sprite
 	jp TrashRAM_SwapOut
+	
+GraphCxVectors:
+	.dw cxMain_3DGraph
+	.dw SimpleRet
+	.dw SimpleRet
+	.dw cxRedisp_3DGraph
+	.dw SimpleRet
+	.dw SimpleRet
+	.db 2

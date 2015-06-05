@@ -423,6 +423,27 @@ DrawSprite_CheckAndLoad:
 	scf					;Set carry flag!
 	ret
 
+;de=x, hl=y
+;ix->sprite (.db width, height \ .db bitpacked_padded_rows)
+DrawSprite_16Bit:
+	call DrawSprite_OffscreenCheck		; hl, ix no longer needed after this
+	ld a,(de)
+	ld c,a			;Store width in save buffer and c
+	inc de
+	ld a,(de)
+	ld b,a			;Store height in save buffer and b
+	inc de
+	ex de,hl
+Draw_Sprite_16Bit_Outer:
+	push bc
+		ld b,c
+		sla b
+		ld c,$11				;7
+		otir
+		pop	bc							;10
+	djnz Draw_Sprite_16Bit_Outer	;13 if jump taken
+	ret
+
 DrawSprite_1Bit_SaveBuf:
 ;bc->palette, de=x, hl=y, iy->save buffer
 ;ix->sprite (.db width, height \ .db bitpacked_padded_rows)
@@ -434,11 +455,15 @@ DrawSprite_1Bit_SaveBuf:
 	ret nz			;DrawSprite_OffscreenCheck returns z on success
 
 	ld a,(de)
-	ld c,a
+	ld (iy),a
+	ld c,a			;Store width in save buffer and c
 	inc de
+	inc iy
 	ld a,(de)
-	ld b,a
+	ld (iy),a
+	ld b,a			;Store height in save buffer and b
 	inc de
+	inc iy
 Draw_Sprite_1Bit_PackedLoop:
 	push bc
 		ld b,c
@@ -450,12 +475,16 @@ Draw_Sprite_1Bit_PackedLine:
 		inc de
 		ld c,8
 Draw_Sprite_1Bit_PackedLine_Bit_NoNewByte:
-		in a,($11)
-		in a,($11)
-		in a,($11)
-		ld (iy),a
-		in a,($11)
-		ld (iy),a
+		push af
+			in a,($11)
+			in a,($11)
+			in a,($11)
+			ld (iy),a
+			inc iy
+			in a,($11)
+			ld (iy),a
+			inc iy
+			pop af
 		rlc a
 		push ix
 			pop hl

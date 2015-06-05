@@ -176,7 +176,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 .var word, paxes_z				;Pointer to variable data	20*2
 
 .varloc temp2, (textShadow+260) - temp2
-.var byte[7*8*2], traceCursorBack
+.var byte[2+(8*8*2)], traceCursorBack
 .var byte[4], traceCursorPalette
 
 ; Constants
@@ -668,57 +668,35 @@ appChangeHook_GoGraph:
 					pop af
 				ld (hl),a							;Whether tracing is enabled
 				
-				; Back up the current GraphHook
-				ld a,SETTINGS_HOOKBACK_GRPH
+				; Set up the context
+				ld hl,GraphCxVectors
+				bcall(_AppInit)
+				ld a,kExtApps						;If we leave cxGraph, the OS tries to draw stuff on [TRACE]
+				ld (cxCurApp),a
+				;res curAble,(iy+curFlags)
+				
+				; Back up the current cursor hook
+				ld a,SETTINGS_HOOKBACK_CUR
 				call LTS_GetPtr						;to hl
-				ld de,GraphHookPtr
+				ld de,CursorHookPtr
 				ex de,hl
 				ld bc,3
 				ldir
-				ld a,(flags + hookflags3)			; contains MenuHookActive
-				and 1 << GraphHookActive
+				ld a,(flags + hookflags2)			; contains cursorHookActive
+				and $ff^(1 << cursorHookActive)
 				ld (de),a
 				
-				; Set up new Graph hook
+				; Set up new cursorhook
 				call GetCurrentPage
-				ld hl,GraphHook
-				bcall(_SetGraphHook)
+				ld hl,graphCursorHook
+				bcall(_SetCursorHook)
 
-#ifdef false
-				; Back up the current RawKeyHook
-				ld a,SETTINGS_HOOKBACK_KEY
-				call LTS_GetPtr						;to hl
-				ld de,RawKeyHookPtr
-				ex de,hl
-				ld bc,3
-				ldir
-				ld a,(flags + hookflags2)			; contains MenuHookActive
-				and 1 << RawKeyHookActive
-				ld (de),a
-				
-				; Set up new RawKeyHook
-				call GetCurrentPage
-				ld hl,GraphKeyHook
-				bcall(_SetRawKeyHook)
+				; Compute graph and display initial version
+				call cxInit_3DGraph
+				bcall(_Redisp)
 
-				; Back up the current cxRedispHook
-				ld a,SETTINGS_HOOKBACK_REDISP
-				call LTS_GetPtr						;to hl
-				ld de,cxRedispHookPtr
-				ex de,hl
-				ld bc,3
-				ldir
-				ld a,(flags + hookflags4)			; contains MenuHookActive
-				and 1 << cxRedispHookActive
-				ld (de),a
-				
-				; Set up new cxRedispHook
-				call GetCurrentPage
-				ld hl,cxRedispHook
-				bcall(_SetcxRedispHook)
-#endif
-
-				jp appChangeHook_Done
+				; Let the OS take over now and call our cxMain when necessary
+				bjump(_Mon)
 
 CleanTempHooks:
 	;WindowHook
@@ -749,6 +727,12 @@ CleanTempHooks:
 	ld de,cxRedispHookPtr+2
 	ld bc,($ff^(1 << cxRedispHookActive))*256 + SETTINGS_HOOKBACK_REDISP
 	ld hl,flags + hookflags4
+	call DisableHook
+
+	;CursorHook
+	ld de,CursorHookPtr+2
+	ld bc,($ff^(1 << cursorHookActive))*256 + SETTINGS_HOOKBACK_CUR
+	ld hl,flags + hookflags2
 	call DisableHook
 
 	ret
