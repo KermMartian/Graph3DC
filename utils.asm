@@ -503,6 +503,7 @@ Draw_Sprite_1Bit_PackedLine_BitLow:
 	djnz Draw_Sprite_1Bit_PackedLoop	;13 if jump taken
 	ret
 
+#ifdef false
 ;OLD: ix -> palette, b = x, l = y, de -> sprite	
 ;NEW: de=x, hl=y, 
 ;NEW: ix=sprite (.dw palette \ .db width, height \ .db bitpacked_padded_rows)
@@ -654,6 +655,7 @@ DrawSprite_4Bit_PackedLine:
 		pop	bc							;10
 	djnz DrawSprite_4Bit_PackedLoop	;13 if jump taken
 	ret
+#endif
 
 ;OLD: ix -> palette, b = x, l = y, de -> sprite	
 ;NEW: de=x, hl=y, 

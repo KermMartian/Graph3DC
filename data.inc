@@ -288,7 +288,12 @@ sTotalProgress:
 	.db "Total: ",$C1,"                 ]",0
 sPartialProgress:
 	.db "Z",$81,":    ",$C1,"                 ]",0
-
+sXEqu:
+	.db "X=",0
+sYEqu:
+	.db "Y=",0
+sZEqu:
+	.db "Z=",0
 TraceCursor:
 	.db 8,8
 	.db %00111000

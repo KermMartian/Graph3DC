@@ -200,6 +200,9 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 #define DEFAULT_XY_MIN $F800
 #define DEFAULT_XY_MAX $0800
 
+#define TRACE_COORDS_START_Y 37
+#define TRACE_COORDS_START_X 1
+
 #define AXIS_MODE_NONE 0				; Neither axes nor bounds
 #define AXIS_MODE_A 1					; Axes only
 #define AXIS_MODE_B 2					; Bounds only
@@ -255,21 +258,25 @@ trash_ram_loc	.equ	$C000
 grid_x			.equ	trash_ram_loc + 0
 grid_y			.equ	grid_x + (capacity_3d_el * 2)
 grid_z			.equ	grid_y + (capacity_3d_el * 2)
-grid_sx			.equ	grid_z + (capacity_3d_el * 2)
+axes_x			.equ 	grid_z + (capacity_3d_el * 2)
+axes_y			.equ	axes_x + (2*20)
+axes_z			.equ	axes_y + (2*20)
+grid_colors		.equ	axes_z + (2*20)
+grid_sx			.equ	grid_colors + (capacity_3d_el * 2)
 grid_sy			.equ	grid_sx + (capacity_2d_el * 2)
 axes_sx			.equ	grid_sy + (capacity_2d_el * 2)
 axes_sy			.equ	axes_sx + (AXES_BOUND_COORDS*2)
-grid_colors		.equ	axes_sy + (AXES_BOUND_COORDS*2)
-axes_x			.equ	grid_colors + (capacity_3d_el * 2)
-axes_y			.equ	axes_x + (2*20)
-axes_z			.equ	axes_y + (2*20)
-;dialogCBRAM		.equ	axes_z + (2*20)
-trash_ram_end	.equ	axes_z + (2*20)		;dialogCBRAM + 16		; 16 bytes for (windowMenuCallbackEnd - windowMenuCallback)
+trash_ram_end	.equ	axes_sy + (AXES_BOUND_COORDS*2)
 trash_ram_fill	.equ	(trash_ram_end - trash_ram_loc)
-.echo "Trash RAM page has ", trash_ram_fill, "/16384 bytes allocated\n"
-.if trash_ram_fill > ($4000-$200)
+trash_ram_fill_max .equ	$4000-$200
+.echo "Trash RAM page has ", trash_ram_fill, "/", trash_ram_fill_max , " bytes allocated\n"
+.if trash_ram_fill > trash_ram_fill_max
 .fail "Trash RAM page has overflowed!"
 .endif
+
+; Reuse
+trace_coord_back	.equ	grid_sx
+.echo "trace_coord_back is ", ((trash_ram_loc + trash_ram_fill_max - grid_sx) / 2), " pixels\n"
 
 ; As suggested by MicrOS. This restricts how much
 ; stack we can use.
@@ -414,8 +421,8 @@ ProgramStart_appInstalled:
 		call PutsApp						; Display App name
 		ld hl,98
 		ld (pencol),hl
-		ld l,76								; d set to 0 by previous ld de
-		ld (penrow),hl
+		ld a,76								; d set to 0 by previous ld de
+		ld (penrow),a
 		ld hl,Text_G3DCDesc
 		call VPutsApp						; Display small description text below
 		pop bc

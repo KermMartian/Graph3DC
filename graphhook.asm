@@ -47,6 +47,7 @@ GraphKeyHook_Graph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
 	ld (hl),1
+	call DrawTraceCoords
 	call DrawTraceCursor
 	ret								; No key
 KeyHook_Graph_RetQuit:
@@ -79,12 +80,16 @@ GraphKeyHook_Trace:
 	push af
 		call EraseTraceCursor
 		pop af
+	ld hl,trace_y
+	ld de,dim_y
 	cp kUp
 	jr z,KeyHook_Trace_Up
-	cp kLeft
-	jr z,KeyHook_Trace_Left
 	cp kDown
 	jr z,KeyHook_Trace_Down
+	ld hl,trace_x
+	ld de,dim_x
+	cp kLeft
+	jr z,KeyHook_Trace_Left
 	cp kRight
 	jr z,KeyHook_Trace_Right
 	cp kClear
@@ -103,11 +108,22 @@ GraphKeyHook_Trace:
 	call GraphRedisp
 	ret											; No key
 KeyHook_Trace_Up:
-KeyHook_Trace_Down:
 KeyHook_Trace_Left:
+	ld a,(hl)
+	or a
+	jr z,KeyHook_Trace_Draw
+	dec (hl)
+	jr KeyHook_Trace_Draw
+KeyHook_Trace_Down:
 KeyHook_Trace_Right:
-	call DrawTraceCursor
-	ret
+	ld a,(de)
+	dec a
+	cp (hl)
+	jr z,KeyHook_Trace_Draw
+	inc (hl)
+KeyHook_Trace_Draw:
+	call DrawTraceCoords
+	jp DrawTraceCursor
 ;-----------------------------------
 GraphRedisp:
 	call SetSpeedFast
@@ -166,11 +182,11 @@ GraphCursorHook_NoFlash:
 
 GetTraceCoords:
 	call TrashRAM_SwapIn
-	ld a,(dim_x)
+	ld a,(dim_y)
 	push af
 		ld e,a
 		ld d,0
-		ld a,(dim_y)
+		ld a,(dim_x)
 		call multade				;hl = dim_x * dim_y
 		ex de,hl
 		ld a,(ateq)
@@ -179,14 +195,14 @@ GetTraceCoords:
 	push hl
 		ld e,a
 		ld d,0
-		ld a,(trace_y)
+		ld a,(trace_x)
 		call multade
 		pop de
-	add hl,de						;hl = (ateq * dim_x * dim_y) + (dim_x * y)
-	ld a,(trace_x)
+	add hl,de						;hl = (ateq * dim_x * dim_y) + (dim_y * x)
+	ld a,(trace_y)
 	ld e,a
 	ld d,0
-	add hl,de						;hl = (ateq * dim_x * dim_y) + (dim_x * y) + x
+	add hl,de						;hl = (ateq * dim_x * dim_y) + (dim_y * x) + y
 	add hl,hl
 	; Have the offset. Load the X, Y, Z pointers
 	push hl
@@ -228,7 +244,79 @@ GetTraceCoords:
 	dec hl
 	dec hl						; Move the pixel to the center of the 7x7 sprite
 	jp TrashRAM_SwapOut
-	
+
+DrawTraceCoords:
+	ld bc,(bgcolor)
+	ld de,(fgcolor)
+	call SetTextColors
+
+	; Draw X
+	ld hl,TRACE_COORDS_START_X
+	ld (pencol),hl
+	ld a,TRACE_COORDS_START_Y
+	ld (penrow),a
+	ld hl,sXEqu
+	call VPutsApp
+	ld hl,deltaX_OS
+	rst 20h						;OP1 = deltaX
+	ld a,(trace_x)
+	bcall(_SetXXOP2)			;OP2 = trace_x
+	bcall(_FPMult)				;OP1 = trace_x * deltaX
+	call OP1toOP2
+	ld hl,minX_OS
+	rst 20h
+	bcall(_FPAdd)				;OP1 = minX + (trace_x * deltaX)
+	bcall(_StoX)
+	ld a,8
+	res fracDrawLFont,(iy+fontFlags)
+	bcall(_DispOP1A)
+
+	; Draw Y
+	ld hl,TRACE_COORDS_START_X
+	ld (pencol),hl
+	ld a,TRACE_COORDS_START_Y+12
+	ld (penrow),a
+	ld hl,sYEqu
+	call VPutsApp
+	ld hl,deltaY_OS
+	rst 20h						;OP1 = deltaY
+	ld a,(trace_y)
+	bcall(_SetXXOP2)			;OP2 = trace_y
+	bcall(_FPMult)				;OP1 = trace_y * deltaY
+	call OP1toOP2
+	ld hl,minY_OS
+	rst 20h
+	bcall(_FPAdd)				;OP1 = minY + (trace_y * deltaY)
+	bcall(_StoY)
+	ld a,8
+	res fracDrawLFont,(iy+fontFlags)
+	bcall(_DispOP1A)
+
+	; Draw Z
+	ld hl,TRACE_COORDS_START_X
+	ld (pencol),hl
+	ld a,TRACE_COORDS_START_Y+24
+	ld (penrow),a
+	ld hl,sZEqu
+	call VPutsApp
+	ld hl,BaseZVarName
+	rst 20h
+	ld a,(ateq)
+	add a,tZ1
+	.warn "This won't skip disabled eqs properly"
+	ld (OP1 + 2),a
+	rst 10h
+	jr c,Trace_Compute_EQ_Error
+	AppOnErr(Trace_Compute_EQ_Error)
+	bcall(_ParseInp)
+	AppOffErr
+	ld a,8
+	res fracDrawLFont,(iy+fontFlags)
+	bcall(_DispOP1A)
+Trace_Compute_EQ_Error:					; All done with displaying the trace X/Y/Z values
+
+	ret
+
 GraphCxVectors:
 	.dw cxMain_3DGraph
 	.dw SimpleRet

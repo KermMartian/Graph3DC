@@ -1274,7 +1274,7 @@ Graph_Render_EQ_YMajor_Inner:
 				inc hl
 				ld (pgrid_colors),hl
 				; Load second endpoint's color
-				ld a,(dim_x)
+				ld a,(dim_y)
 				ld c,a
 				ld b,0
 				push bc
@@ -1322,7 +1322,7 @@ Graph_Render_EQ_YMajor_Inner:
 					ld (pgrid_sy),hl
 					push bc
 						push af
-							ld a,(dim_x)
+							ld a,(dim_y)
 							dec a
 							ld c,a
 							ld b,0
@@ -1358,7 +1358,7 @@ Graph_Render_EQ_YMajor_Inner_Next:
 			jp nz,Graph_Render_EQ_YMajor_Outer
 			; Fix color pointer
 			ld hl,(pgrid_colors)
-			ld a,(dim_x)
+			ld a,(dim_y)
 			ld e,a
 			ld d,0
 			add hl,de

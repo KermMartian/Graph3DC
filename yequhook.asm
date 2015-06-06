@@ -37,8 +37,8 @@ YEquHook_Partial_PlotLineLoop_AddXPos:
 			ld d,0
 			ld (pencol),de
 			pop af
-		ld de,36
-		ld (penrow),de
+		ld a,36
+		ld (penrow),a
 		ld de,COLOR_BLACK
 		ld bc,COLOR_WHITE
 		push de
@@ -129,8 +129,8 @@ DisplayAppTitleText:
 		pop hl
 	ld de,2
 	ld (pencol),de
-	ld de,14
-	ld (penrow),de
+	ld a,14
+	ld (penrow),a
 	ld de,$e71c
 	ld bc,$52aa
 	call VPutsColored
@@ -159,8 +159,8 @@ yEquHook_Not2:
 	ld hl,PlotLineText2
 	ld de,12
 	ld (pencol),de
-	ld de,36
-	ld (penrow),de
+	ld a,36
+	ld (penrow),a
 	call vputsapp
 
 	; Set max equations
@@ -427,8 +427,8 @@ yEquCursorHook_DisplayBlock_NoCheckInvert:
 		pop af
 	call SetTextColors
 	; now hl and colors are set. Pick some coordinates
-	ld de,36
-	ld (penrow),de
+	ld a,36
+	ld (penrow),a
 	ld b,a
 	ld a,12-60
 	inc b
