@@ -16,8 +16,21 @@ cxRedisp_3DGraph:
 	call Graph_Redraw
 	call DisplayOrg
 	res graphDraw,(iy+graphFlags)
+
+	; Check if tracing is enabled and we have enabled equations
+	ld a,SETTINGS_AVOFF_TRACE
+	call LTS_GetByte
+	or a
+	ret z
+	ld a,(counteqs)
+	or a
+	ret z
+
+	call DrawTraceEquation
+	call DrawTraceCoords
+	call DrawTraceCursor
 	ret
-	
+
 ;-----------------------------------
 cxMain_3DGraph:
 	push bc
@@ -43,10 +56,14 @@ GraphKeyHook_Graph:
 	jr z,KeyHook_Graph_RetQuit
 	cp kTrace
 	jr nz,GraphKeyHook_OtherKey
+	ld a,(counteqs)
+	or a
+	ret z							; Don't go to trace mode with 0 enabled equations
 	; To Trace mode from Graph mode
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
 	ld (hl),1
+	call DrawTraceEquation
 	call DrawTraceCoords
 	call DrawTraceCursor
 	ret								; No key
@@ -78,6 +95,9 @@ KeyHook_Graph_NotClear:
 ;-----------------------------------
 GraphKeyHook_Trace:
 	push af
+		ld a,(counteqs)
+		or a
+		jr z,GraphKeyHook_Trace_NoEqs
 		call EraseTraceCursor
 		pop af
 	ld hl,trace_y
@@ -100,6 +120,9 @@ GraphKeyHook_Trace:
 		pop af
 	cp kGraph
 	jr nz,GraphKeyHook_OtherKey
+	push af
+GraphKeyHook_Trace_NoEqs:
+		pop af
 	; To Graph mode from Trace mode
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
@@ -263,9 +286,9 @@ DrawTraceCoords:
 	bcall(_SetXXOP2)			;OP2 = trace_x
 	bcall(_FPMult)				;OP1 = trace_x * deltaX
 	call OP1toOP2
-	ld hl,minX_OS
+	ld hl,maxX_OS
 	rst 20h
-	bcall(_FPAdd)				;OP1 = minX + (trace_x * deltaX)
+	bcall(_FPSub)				;OP1 = maxX - (trace_x * deltaX)
 	bcall(_StoX)
 	ld a,8
 	res fracDrawLFont,(iy+fontFlags)
@@ -284,9 +307,9 @@ DrawTraceCoords:
 	bcall(_SetXXOP2)			;OP2 = trace_y
 	bcall(_FPMult)				;OP1 = trace_y * deltaY
 	call OP1toOP2
-	ld hl,minY_OS
+	ld hl,maxY_OS
 	rst 20h
-	bcall(_FPAdd)				;OP1 = minY + (trace_y * deltaY)
+	bcall(_FPSub)				;OP1 = minY - (trace_y * deltaY)
 	bcall(_StoY)
 	ld a,8
 	res fracDrawLFont,(iy+fontFlags)
@@ -299,11 +322,13 @@ DrawTraceCoords:
 	ld (penrow),a
 	ld hl,sZEqu
 	call VPutsApp
-	ld hl,BaseZVarName
-	rst 20h
+	
 	ld a,(ateq)
-	add a,tZ1
-	.warn "This won't skip disabled eqs properly"
+	call GetEnabledEq					; Gets the A'th equation token
+	push af
+		ld hl,BaseZVarName
+		rst 20h
+		pop af
 	ld (OP1 + 2),a
 	rst 10h
 	jr c,Trace_Compute_EQ_Error
@@ -316,6 +341,100 @@ DrawTraceCoords:
 Trace_Compute_EQ_Error:					; All done with displaying the trace X/Y/Z values
 
 	ret
+
+; Inputs: hl -> tokens
+;         bc =  length
+;         de =  maxcol
+VPutsTokenizedString:
+	push de
+		push bc
+			push hl
+				bcall(_Get_Tok_Strng)
+				ld hl,OP3
+				ld b,a
+				call VPutsAppN
+				pop hl
+			ld a,(hl)
+			inc hl
+			bcall(_IsA2ByteTok)
+			jr nz,VPutsTokenizedString_OneByte
+			inc hl
+VPutsTokenizedString_OneByte:
+			pop bc
+		pop de
+	dec bc
+	ld a,b
+	or c
+	ret z
+	push de
+		push hl
+			ld hl,(pencol)
+			ex de,hl
+			or a
+			sbc hl,de
+			ld de,10
+			call cphlde
+			pop hl
+		pop de
+	jr nc,VPutsTokenizedString
+	ld a,b
+	or a
+	jr nz,VPutsTokenizedString
+	ld a,c
+	dec a
+	jr nz,VPutsTokenizedString
+	ld hl,OP2
+	ld (hl),$BB			;$BB $DB is an ellipsis
+	inc hl
+	ld (hl),$DB
+	dec hl
+	bcall(_Get_Tok_Strng)
+	ld hl,OP3
+	ld b,a
+	call VPutsAppN
+	ret
+
+DrawTraceEquation:
+	call SetupStatusText
+	call SetTextColors
+	ld hl,sZEqu
+	call VPutsApp
+	ld a,(ateq)
+	call GetEnabledEq					; Gets the A'th equation token
+	push af
+		ld hl,BaseZVarName
+		rst 20h
+		pop af
+	ld (OP1 + 2),a
+	rst 10h
+	ret c
+	ex de,hl
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	ld de,TRACE_EQ_END_X
+	call VPutsTokenizedString
+	ret
+	
+GetEnabledEq:
+	ld c,tZ1
+	ld b,a
+	ld hl,eq_en_cache
+GetEnabledEqLoop:
+	ld a,(hl)
+	inc hl
+	inc c
+	or a
+	jr z,GetEnabledEqLoop
+	dec c
+	ld a,b
+	or a
+	ld a,c
+	ret z
+	dec b
+	inc c
+	jr GetEnabledEqLoop
 
 GraphCxVectors:
 	.dw cxMain_3DGraph

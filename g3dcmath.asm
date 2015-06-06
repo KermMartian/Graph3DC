@@ -334,7 +334,7 @@ FPtoOP1:
 	ret
 
 ; Loads hl to OP1, scaled by scalefactor.
-; Destroys OP1 and OP4
+; Destroys OP1, OP2, and OP4
 FPtoOP1_scaled:
 	call FPtoOP1
 	call OP1toOP4

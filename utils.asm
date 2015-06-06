@@ -951,6 +951,19 @@ VPutSApp:				;display text in small font
 		pop hl
 	jr VPutSApp
 	
+VPutSAppN:				;display text in small font
+	push bc
+		ld a,(hl)
+		inc	hl
+		push hl           
+			push de
+				bcall(_VPutMap)
+				pop de
+			pop hl
+		pop bc
+	djnz VPutSAppN
+	ret
+
 ;--------------------------------------------------
 ResetColors:
 	ld de,COLOR_BLACK
@@ -1001,6 +1014,8 @@ InitZEquations_Loop_Exists:
 	ret
 ;--------------------------------------------------
 CheckEnabled_Setup:
+	xor a
+	ld (counteqs),a
 	ld a,SETTINGS_AVOFF_MAXEQS
 	call LTS_GetByte
 	ld b,a
@@ -1021,6 +1036,8 @@ CheckEnabled_Setup_Loop:
 			bit 5,(hl)
 			jr z,CheckEnabled_Setup_Loop_Store
 			ld a,1
+			ld hl,counteqs
+			inc (hl)
 CheckEnabled_Setup_Loop_Store:
 			pop hl
 		ld (hl),a

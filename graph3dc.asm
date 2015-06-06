@@ -27,8 +27,10 @@
 ; [X] Consider averaging point colors for line colors -> Thanks to Runer112 for working through this with me and writing an optimized version
 ; [-] Experiment with the regraph hook for v--- this
 ; [X] Fix rendering when you leave via a menu and then return
+; [X] Add some kind of graphDirty flag for switching between trace and graph.
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
+; [ ] Fix bug in Y= menu when entering a menu or using Rcl.
 ; [ ] Explain what's happening while computation is underway
 ; [ ] Fix 2D graphing freezing after entering a 3D equation
 ; [ ] Implement Format menu
@@ -36,14 +38,14 @@
 ; [ ] Add tip for equation entry in Y= menu
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
-; [ ] Lots of beta-testing!
+; [ ] Set default res to 17/27 when switching modes
+; [ ] Display proper number of equations based on mode
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
-; [ ] Add some kind of graphDirty flag for switching between trace and graph.
 ; [ ] Deal with split-screen flag.
 ; [ ] Erase progress bars using a fill
 ; [ ] Reset colors before possible error message in graph computation
-; [ ] Set default res to 17/27 when switching modes
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
+; [ ] Lots of beta-testing!
 
 .echo "-----------------------\n"
 
@@ -128,8 +130,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 .var fp8.8, val_zero
 .var byte[9], deltaX_OS
 .var byte[9], deltaY_OS
-.var byte[9], minX_OS
-.var byte[9], minY_OS
+.var byte[9], maxX_OS
+.var byte[9], maxY_OS
 
 .var word, sx
 .var word, sy
@@ -200,8 +202,9 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 #define DEFAULT_XY_MIN $F800
 #define DEFAULT_XY_MAX $0800
 
-#define TRACE_COORDS_START_Y 37
+#define TRACE_COORDS_START_Y 34
 #define TRACE_COORDS_START_X 1
+#define TRACE_EQ_END_X 290
 
 #define AXIS_MODE_NONE 0				; Neither axes nor bounds
 #define AXIS_MODE_A 1					; Axes only

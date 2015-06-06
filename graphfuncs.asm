@@ -170,26 +170,10 @@ Graph_Recolor:
 	; Figure out which equations are enabled
 #ifdef DEBUG_GRAPH
 	ld a,1
-#else
-	ld a,SETTINGS_AVOFF_MAXEQS
-	call LTS_GetByte
-	ld b,a
-	ld a,tZ1
-	ld c,0
-Graph_CountEQs_Loop:
-	push af
-		push bc
-			call CheckEnabledA
-			pop bc
-		jr z,Graph_CountEQs_Loop_NotEnabled
-		inc c
-Graph_CountEQs_Loop_NotEnabled:
-		pop af
-	inc a
-	djnz Graph_CountEQs_Loop
-	ld a,c
-#endif
 	ld (counteqs),a
+#else
+	ld a,(counteqs)
+#endif
 	ld e,a
 	ld d,0
 	ld a,(dim_x)
@@ -225,18 +209,18 @@ Graph_CountEQs_Loop_NotEnabled:
 	ld (pgrid_z),hl
 
 	; Pre-compute deltaX and deltaY
-	; - min X
-	ld hl,(min_x)
-	call FPtoOP1_scaled
-	ld hl,OP1
-	ld de,minX_OS
-	call OPXtoOPX
 	; - max X
 	ld hl,(max_x)
 	call FPtoOP1_scaled
-	ld hl,minX_OS
-	ld de,OP2
+	ld hl,OP1
+	ld de,maxX_OS
 	call OPXtoOPX
+	; - min X
+	ld hl,(min_x)
+	call FPtoOP1_scaled
+	call OP1toOP2
+	ld hl,maxX_OS
+	call OPXtoOP1
 	bcall(_FPSub)
 	; - delta X
 	bcall(_PushOP1)
@@ -252,18 +236,18 @@ Graph_CountEQs_Loop_NotEnabled:
 	ld de,deltaX_OS
 	call OPXtoOPX
 
-	; - min Y
-	ld hl,(min_y)
-	call FPtoOP1_scaled
-	ld hl,OP1
-	ld de,minY_OS
-	call OPXtoOPX
 	; - max Y
 	ld hl,(max_y)
 	call FPtoOP1_scaled
-	ld hl,minY_OS
-	ld de,OP2
+	ld hl,OP1
+	ld de,maxY_OS
 	call OPXtoOPX
+	; - min Y
+	ld hl,(min_y)
+	call FPtoOP1_scaled
+	call OP1toOP2
+	ld hl,maxY_OS
+	call OPXtoOP1
 	bcall(_FPSub)
 	; - delta Y
 	bcall(_PushOP1)
@@ -343,10 +327,10 @@ Graph_Compute_EQ_ClearProgressLoop:
 		; Note! _PutC messes this up.
 		
 		; Must do this with normal OS RAM swapped in
-		ld hl,minX_OS
+		ld hl,maxX_OS
 		rst 20h
 		bcall(_StoX)
-		ld hl,minY_OS
+		ld hl,maxY_OS
 		rst 20h
 		bcall(_StoY)
 
@@ -470,7 +454,7 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			ld hl,deltaY_OS
 			ld de,OP2
 			call OPXtoOPX
-			bcall(_FPAdd)
+			bcall(_FPSub)
 			bcall(_StoY)
 
 			pop bc
@@ -486,11 +470,11 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			ld hl,deltaX_OS
 			ld de,OP2
 			call OPXtoOPX
-			bcall(_FPAdd)
+			bcall(_FPSub)
 			bcall(_StoX)
 
 			; Get Y ready
-			ld hl,minY_OS
+			ld hl,maxY_OS
 			call OPXtoOP1
 			bcall(_StoY)
 
