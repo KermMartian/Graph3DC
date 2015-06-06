@@ -21,15 +21,18 @@ cxRedisp_3DGraph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetByte
 	or a
-	ret z
+	jr z,cxRedisp_3DGraph_AppTitle
 	ld a,(counteqs)
 	or a
-	ret z
+	jr z,cxRedisp_3DGraph_AppTitle
 
+cxRedisp_3DGraph_InitTrace:
 	call DrawTraceEquation
 	call DrawTraceCoords
-	call DrawTraceCursor
-	ret
+	jp DrawTraceCursor
+	
+cxRedisp_3DGraph_AppTitle:
+	jp DisplayAppTitle
 
 ;-----------------------------------
 cxMain_3DGraph:
@@ -63,9 +66,7 @@ GraphKeyHook_Graph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
 	ld (hl),1
-	call DrawTraceEquation
-	call DrawTraceCoords
-	call DrawTraceCursor
+	call cxRedisp_3DGraph_InitTrace
 	ret								; No key
 KeyHook_Graph_RetQuit:
 	bjump(_JForceCmdNoChar)
@@ -112,6 +113,18 @@ GraphKeyHook_Trace:
 	jr z,KeyHook_Trace_Left
 	cp kRight
 	jr z,KeyHook_Trace_Right
+	cp kTrace
+	jr nz,GraphKeyHook_Trace_NotTrace
+	ld hl,ateq
+	inc (hl)
+	ld a,(counteqs)
+	cp (hl)
+	jr nz,GraphKeyHook_Trace_Trace_Display
+	ld (hl),0
+GraphKeyHook_Trace_Trace_Display:
+	call cxRedisp_3DGraph_InitTrace
+	ret
+GraphKeyHook_Trace_NotTrace:
 	cp kClear
 	jr z,KeyHook_Graph_RetQuit
 
@@ -395,6 +408,7 @@ VPutsTokenizedString_OneByte:
 	ret
 
 DrawTraceEquation:
+	bcall(_ClearAppTitle)
 	call SetupStatusText
 	call SetTextColors
 	ld hl,sZEqu

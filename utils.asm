@@ -1090,3 +1090,23 @@ OPXtoOPX:
 	ld bc,9
 	ldir
 	ret
+
+DisplayAppTitle:
+	ld hl,AppTitle
+DisplayAppTitleText:
+	push hl
+		bcall(_ClearAppTitle)
+		pop hl
+	call SetupStatusText
+	call VPutsColored
+	call ResetColors
+	ret
+
+SetupStatusText:
+	ld de,2
+	ld (pencol),de
+	ld a,14
+	ld (penrow),a
+	ld de,$e71c
+	ld bc,$52aa
+	ret
