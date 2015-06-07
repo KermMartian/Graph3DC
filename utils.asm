@@ -1110,3 +1110,23 @@ SetupStatusText:
 	ld de,$e71c
 	ld bc,$52aa
 	ret
+
+GetEnabledEq:
+	ld c,tZ1
+	ld b,a
+	ld hl,eq_en_cache
+GetEnabledEqLoop:
+	ld a,(hl)
+	inc hl
+	inc c
+	or a
+	jr z,GetEnabledEqLoop
+	dec c
+	ld a,b
+	or a
+	ld a,c
+	ret z
+	dec b
+	inc c
+	jr GetEnabledEqLoop
+

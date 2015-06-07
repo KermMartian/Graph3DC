@@ -1329,6 +1329,7 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "menuhook.asm"
 #include "graphhook.asm"
 #include "graphfuncs.asm"
+#include "tracefuncs.asm"
 #include "bigicon.inc"
 #include "data.inc"
 
