@@ -21,17 +21,17 @@ cxRedisp_3DGraph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetByte
 	or a
-	jr z,cxRedisp_3DGraph_AppTitle
+	jr z,cxRedisp_3DGraph_PostInitGraph
 	ld a,(counteqs)
 	or a
-	jr z,cxRedisp_3DGraph_AppTitle
+	jr z,cxRedisp_3DGraph_PostInitGraph
 
-cxRedisp_3DGraph_InitTrace:
+cxRedisp_3DGraph_PostInitTrace:
 	call DrawTraceEquation
 	call DrawTraceCoords
 	jp DrawTraceCursor
 	
-cxRedisp_3DGraph_AppTitle:
+cxRedisp_3DGraph_PostInitGraph:
 	jp DisplayAppTitle
 
 ;-----------------------------------
@@ -66,7 +66,7 @@ GraphKeyHook_Graph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
 	ld (hl),1
-	call cxRedisp_3DGraph_InitTrace
+	call cxRedisp_3DGraph_PostInitTrace
 	ret								; No key
 KeyHook_Graph_RetQuit:
 	bjump(_JForceCmdNoChar)
@@ -141,17 +141,18 @@ GraphKeyHook_Trace_NoEqs:
 	call LTS_GetPtr
 	ld (hl),0
 	; No need to erase Trace cursor here
+	call cxRedisp_3DGraph_PostInitGraph
 	call GraphRedisp
 	ret											; No key
 KeyHook_Trace_Up:
-KeyHook_Trace_Left:
+KeyHook_Trace_Right:
 	ld a,(hl)
 	or a
 	jr z,KeyHook_Trace_Draw
 	dec (hl)
 	jr KeyHook_Trace_Draw
 KeyHook_Trace_Down:
-KeyHook_Trace_Right:
+KeyHook_Trace_Left:
 	ld a,(de)
 	dec a
 	cp (hl)

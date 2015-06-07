@@ -194,6 +194,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 #define COLOR_GRAY $8410
 #define COLOR_WHITE $ffff
 #define COLOR_BLACK $0000
+#define COLOR_STATUS $52AA
 #define WINDOW_ID_OFFSET $80
 #define MIN_FILL_ERASE_SEGMENTS 600
 #define PROGRESS_WIDTH 17
@@ -321,7 +322,7 @@ PlotEnabled1	.equ	$9812
 PlotEnabled2	.equ	$9824
 PlotEnabled3	.equ	$9836
 menuCurCol		.equ	$9d83
-_ClearAppTitle	.equ	5056h
+_ClearAppTitle	.equ	$56B3		;5056h
 _maybe_MonRestart .equ	$4fba
 mZoom			.equ	04h
 mZoom3D			.equ	94h
