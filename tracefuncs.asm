@@ -242,8 +242,8 @@ DrawTraceEquation:
 	bcall(_ClearAppTitle)
 	call SetupStatusText
 	call SetTextColors
-	ld hl,sZEqu
-	call VPutsApp
+	ld a,'Z'
+	bcall(_VPutMap)
 	ld a,(ateq)
 	call GetEnabledEq					; Gets the A'th equation token
 	push af
@@ -251,6 +251,10 @@ DrawTraceEquation:
 		rst 20h
 		pop af
 	ld (OP1 + 2),a
+	add a,$81-tZ1						; Convert Z1-Z6 to sub1 to sub6
+	bcall(_VPutMap)
+	ld a,'='
+	bcall(_VPutMap)
 	rst 10h
 	ret c
 	ex de,hl

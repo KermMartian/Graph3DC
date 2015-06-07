@@ -1,4 +1,5 @@
 cxInit_3DGraph:
+	set appMenus,(iy+appFlags)				; Let menus be opened.
 	call LTS_CacheAV
 	call Graph_Setup
 	call DisplayOrg
@@ -6,6 +7,7 @@ cxInit_3DGraph:
 	ret
 
 cxRedisp_3DGraph:
+	set saIndicForce,(iy+extraIndicFlags)	; Force 2nd/alpha to appear in status area
 	call LTS_CacheAV
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
@@ -34,6 +36,9 @@ cxRedisp_3DGraph_PostInitTrace:
 cxRedisp_3DGraph_PostInitGraph:
 	jp DisplayAppTitle
 
+cxPutaway_3DGraph:
+	res saIndicForce,(iy+extraIndicFlags)	; Do not force 2nd/alpha to appear in status area
+	ret
 ;-----------------------------------
 cxMain_3DGraph:
 	push bc
@@ -67,7 +72,7 @@ GraphKeyHook_Graph:
 	call LTS_GetPtr
 	ld (hl),1
 	call cxRedisp_3DGraph_PostInitTrace
-	ret								; No key
+	jp GraphKeyHook_NoKey								; No key
 KeyHook_Graph_RetQuit:
 	bjump(_JForceCmdNoChar)
 KeyHook_Graph_StoreAlpha:
@@ -85,13 +90,13 @@ KeyHook_Graph_Rerotate:
 	call Graph_Redraw
 	call DisplayOrg
 	res graphDraw,(iy+graphFlags)
+	jr GraphKeyHook_NoKey
+
 GraphKeyHook_OtherKey:
 	cp kClear
 	jr nz,KeyHook_Graph_NotClear
 	bjump(_JForceCmdNoChar)
 KeyHook_Graph_NotClear:
-	cp echoStart1
-	ret c
 	bjump(_JForceCmd)
 ;-----------------------------------
 GraphKeyHook_Trace:
@@ -104,15 +109,15 @@ GraphKeyHook_Trace:
 	ld hl,trace_y
 	ld de,dim_y
 	cp kUp
-	jr z,KeyHook_Trace_Up
+	jr z,GraphKeyHook_Trace_Up
 	cp kDown
-	jr z,KeyHook_Trace_Down
+	jr z,GraphKeyHook_Trace_Down
 	ld hl,trace_x
 	ld de,dim_x
 	cp kLeft
-	jr z,KeyHook_Trace_Left
+	jr z,GraphKeyHook_Trace_Left
 	cp kRight
-	jr z,KeyHook_Trace_Right
+	jr z,GraphKeyHook_Trace_Right
 	cp kTrace
 	jr nz,GraphKeyHook_Trace_NotTrace
 	ld hl,ateq
@@ -122,7 +127,7 @@ GraphKeyHook_Trace:
 	jr nz,GraphKeyHook_Trace_Trace_Display
 	ld (hl),0
 GraphKeyHook_Trace_Trace_Display:
-	call cxRedisp_3DGraph_InitTrace
+	call cxRedisp_3DGraph_PostInitTrace
 	ret
 GraphKeyHook_Trace_NotTrace:
 	cp kClear
@@ -143,24 +148,27 @@ GraphKeyHook_Trace_NoEqs:
 	; No need to erase Trace cursor here
 	call cxRedisp_3DGraph_PostInitGraph
 	call GraphRedisp
+GraphKeyHook_NoKey:
+	xor a
 	ret											; No key
-KeyHook_Trace_Up:
-KeyHook_Trace_Right:
+GraphKeyHook_Trace_Up:
+GraphKeyHook_Trace_Right:
 	ld a,(hl)
 	or a
-	jr z,KeyHook_Trace_Draw
+	jr z,GraphKeyHook_Trace_Draw
 	dec (hl)
-	jr KeyHook_Trace_Draw
-KeyHook_Trace_Down:
-KeyHook_Trace_Left:
+	jr GraphKeyHook_Trace_Draw
+GraphKeyHook_Trace_Down:
+GraphKeyHook_Trace_Left:
 	ld a,(de)
 	dec a
 	cp (hl)
-	jr z,KeyHook_Trace_Draw
+	jr z,GraphKeyHook_Trace_Draw
 	inc (hl)
-KeyHook_Trace_Draw:
+GraphKeyHook_Trace_Draw:
 	call DrawTraceCoords
-	jp DrawTraceCursor
+	call DrawTraceCursor
+	jr GraphKeyHook_NoKey
 ;-----------------------------------
 GraphRedisp:
 	call SetSpeedFast
@@ -171,7 +179,7 @@ GraphRedisp:
 GraphCxVectors:
 	.dw cxMain_3DGraph
 	.dw SimpleRet
-	.dw SimpleRet
+	.dw cxPutaway_3DGraph
 	.dw cxRedisp_3DGraph
 	.dw SimpleRet
 	.dw SimpleRet

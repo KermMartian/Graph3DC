@@ -99,6 +99,7 @@ YEquHook_SpecialPlotLine_Setup:
 	call GetCurrentPage
 	ld hl,yEquCursorHook
 	bcall(_SetCursorHook)
+	set saIndicForce,(iy+extraIndicFlags)	;Make 2nd/alpha appear in status area
 	jr YEquHook_ResZRet
 
 YEquHook_SetZRet:
@@ -293,7 +294,7 @@ cxMain_PlotLine_NotLeft:
 	cp kDown
 	jr nz,cxMain_PlotLine_NotDown
 cxMain_PlotLine_RestoreApp:
-	call ClearCursorHook
+	call cxPutAway_PlotLine
 	call RestoreMonVectors
 	bjump(_maybe_MonRestart)
 	;bjump(_Mon)
@@ -371,7 +372,7 @@ yEquCursorHook_DisplayBlock:
 		pop bc
 	ld de,COLOR_BLACK
 	ld hl,PlotLineText2
-	and 1
+	and 1							; SETTINGS_AVOFF_MODE byte
 	ld a,(menuCurCol)
 	push af
 		push de
@@ -411,9 +412,7 @@ yEquCursorHook_DisplayBlock_NoCheckInvert:
 		pop af
 	call SetTextColors
 	; now hl and colors are set. Pick some coordinates
-	ld a,36
-	ld (penrow),a
-	ld b,a
+	ld b,a							
 	ld a,12-60
 	inc b
 yEquCursorHook_DisplayBlock_AddXLoop:
@@ -422,13 +421,17 @@ yEquCursorHook_DisplayBlock_AddXLoop:
 	ld e,a
 	ld d,0
 	ld (pencol),de
-	call vputsapp
+	ld a,36
+	ld (penrow),a
+	call vputsapp							; hl was already set earlier in this routine
 yEquCursorHook_NotDispUnderCursor:
 	cp a
 	ret
 
 ;--------------------------------------------
-ClearCursorHook:
+cxPutAway_PlotLine:
+	res saIndicForce,(iy+extraIndicFlags)	;Do not force 2nd/alpha to appear in status area
+
 	call GetCurrentPage
 	ld b,a
 	ld a,(CursorHookPtr+2)
@@ -465,7 +468,7 @@ RestoreMonVectors:
 SpecialPlotLineVectors:
 	.dw cxMain_PlotLine
 	.dw SimpleRet
-	.dw ClearCursorHook
+	.dw cxPutAway_PlotLine
 	.dw SimpleRet
 	.dw SimpleRet
 	.dw SimpleRet

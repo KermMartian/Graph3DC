@@ -330,6 +330,8 @@ fastSpeed		.equ	5
 speedFlags		.equ	24h
 _GetBytePaged	.equ	_LoadBIndPaged
 tZ1				.equ	tY0+1
+extraIndicFlags	.equ	$3E
+saIndicForce	.equ	2
 .list
 
 ;-----------------------------------
@@ -575,7 +577,7 @@ ProgramStart_Install:
 	call InitZEquations
 
 	; Set up the appChangeHook
-	res 1,(iy+$3A)							;?????
+	res 1,(iy+$3A)							;????? Reverse-engineered from Transform & the TI-OS for something
 	call GetCurrentPage
 	ld hl,appChangeHook						;the ACTUAL appChange hook.
 	bcall(_SetAppChangeHook)
