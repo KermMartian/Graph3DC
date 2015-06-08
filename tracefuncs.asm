@@ -32,6 +32,7 @@ DrawTraceCursor:
 		ld iy,traceCursorBack
 		ld ix,TraceCursor
 		call DrawSprite_1Bit_SaveBuf
+		call Full_Window
 		pop iy
 	ei
 	set curOn,(iy+curFlags)
@@ -41,7 +42,10 @@ DrawTraceCursor:
 EraseTraceCursor:
 	call GetTraceCoords
 	ld ix,traceCursorBack
+	di
 	call DrawSprite_16Bit
+	call Full_Window
+	ei
 	res curOn,(iy+curFlags)
 GraphCursorHook_NoFlash:
 	cp a
@@ -117,6 +121,53 @@ DrawTraceCoords:
 	ld de,(fgcolor)
 	call SetTextColors
 
+	; Save coordinate area
+	di
+	call TraceCoordBackRAM_SwapIn
+	call DisplayNormal
+	ld de,TRACE_COORDS_START_X
+	ld hl,TRACE_COORDS_START_Y
+	ld bc,TRACE_COORDS_WIDTH
+	push bc
+		push bc
+			ld c,TRACE_COORDS_HEIGHT
+			call RectWindow
+		call DrawSprite_SetDataMode
+		pop de
+	ld hl,trace_coord_back
+	ld (hl),e
+	inc hl
+	ld a,TRACE_COORDS_HEIGHT
+	ld (hl),a
+	inc hl
+	push hl
+		call multade
+		ld b,h
+		ld c,l
+		pop hl
+DrawTraceCoords_SaveAreaLoop:
+	in a,($11)
+	in a,($11)
+	in a,($11)
+	ld (hl),a
+	inc hl
+	in a,($11)
+	ld (hl),a
+	dec hl
+	ld a,(hl)
+	out ($11),a
+	inc hl
+	ld a,(hl)
+	out ($11),a
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,DrawTraceCoords_SaveAreaLoop
+	call TraceCoordBackRAM_SwapOut
+	call DisplayOrg							;Also sets full window
+	ei
+
 	; Draw X
 	ld hl,TRACE_COORDS_START_X
 	ld (pencol),hl
@@ -184,6 +235,18 @@ DrawTraceCoords:
 	bcall(_DispOP1A)
 Trace_Compute_EQ_Error:					; All done with displaying the trace X/Y/Z values
 
+	ret
+
+EraseTraceCoords:
+	; Restore coordinate area
+	di
+	call TraceCoordBackRAM_SwapIn
+	ld de,TRACE_COORDS_START_X
+	ld hl,TRACE_COORDS_START_Y
+	ld ix,trace_coord_back
+	call DrawSprite_16Bit
+	call TraceCoordBackRAM_SwapOut
+	ei
 	ret
 
 ; Inputs: hl -> tokens

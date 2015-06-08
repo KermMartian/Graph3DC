@@ -28,6 +28,7 @@
 ; [-] Experiment with the regraph hook for v--- this
 ; [X] Fix rendering when you leave via a menu and then return
 ; [X] Add some kind of graphDirty flag for switching between trace and graph.
+; [X] +/- zooming from graph mode
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Fix bug in Y= menu when entering a menu or using Rcl.
@@ -80,6 +81,7 @@ NUM_PAGES = 1
 
 temp1	.equ cmdShadow	; 260 bytes
 temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 bytes
+temp3	.equ plotSScreen
 
 .varloc temp1, 260
 
@@ -177,7 +179,7 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 .var word, paxes_y				;Pointer to variable data	20*2
 .var word, paxes_z				;Pointer to variable data	20*2
 
-.varloc temp2, (textShadow+260) - temp2
+.varloc temp3, 768
 .var byte[2+(8*8*2)], traceCursorBack
 .var byte[4], traceCursorPalette
 
@@ -187,7 +189,6 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 #define OUT_RIGHT 4
 #define OUT_BOTTOM 8
 #define INT_TO_8P8	256
-#define TRASHABLE_RAM_PAGE 6							;0-7
 #define MAX_COLOR_MODES 3
 #define MAX_AXIS_MODES 4
 #define AXES_BOUND_COORDS 20
@@ -206,6 +207,8 @@ temp2	.equ $8585+3	; part of textShadow; leave space for ISR -> at least 132 byt
 #define TRACE_COORDS_START_Y 34
 #define TRACE_COORDS_START_X 1
 #define TRACE_EQ_END_X 290
+#define TRACE_COORDS_WIDTH 85
+#define TRACE_COORDS_HEIGHT 36
 
 #define AXIS_MODE_NONE 0				; Neither axes nor bounds
 #define AXIS_MODE_A 1					; Axes only
@@ -258,6 +261,7 @@ capacity_3d_el = sMAX(MAX_EQS * MAX_XY_RES * MAX_XY_RES, MAX_EQS_HI * MAX_XY_RES
 capacity_2d_el = sMAX(MAX_XY_RES * MAX_XY_RES, MAX_XY_RES_HI * MAX_XY_RES_HI)
 
 ; "Dynamic" allocation for graph-drawing data
+#define TRASHABLE_RAM_PAGE 6							;0-7
 trash_ram_loc	.equ	$C000
 grid_x			.equ	trash_ram_loc + 0
 grid_y			.equ	grid_x + (capacity_3d_el * 2)
@@ -279,8 +283,10 @@ trash_ram_fill_max .equ	$4000-$200
 .endif
 
 ; Reuse
-trace_coord_back	.equ	grid_sx
-.echo "trace_coord_back is ", ((trash_ram_loc + trash_ram_fill_max - grid_sx) / 2), " pixels\n"
+#define TRACE_COORD_RAM_PAGE 7							;0-7
+trace_coord_back	.equ	$C000
+trace_coord_back_fill_max .equ	$4000-$200
+.echo "trace_coord_back is ", ((trace_coord_back + trace_coord_back_fill_max - trace_coord_back) / 2), " pixels\n"
 
 ; As suggested by MicrOS. This restricts how much
 ; stack we can use.
@@ -423,14 +429,28 @@ ProgramStart_appInstalled:
 		call DisplayOrg
 		ld hl,1+(8*256)
 		ld (currow),hl
-		ld hl,Text_G3DCName
+		ld hl,sG3DCName
 		call PutsApp						; Display App name
 		ld hl,98
 		ld (pencol),hl
 		ld a,76								; d set to 0 by previous ld de
 		ld (penrow),a
-		ld hl,Text_G3DCDesc
+		ld hl,sG3DCDesc
 		call VPutsApp						; Display small description text below
+		ld b,4
+		ld a,189
+		ld (penrow),a
+		ld hl,sAuthor
+ProgramStart_BottomTextLoop:
+		ld de,1
+		ld (pencol),de
+		push bc
+			call VPutsApp
+			pop bc
+		ld a,(penrow)
+		add a,12
+		ld (penrow),a
+		djnz ProgramStart_BottomTextLoop
 		pop bc
 	ld c,0									; b = # items; c = selected item
 ProgramStart_MainMenuDisplay:
@@ -673,7 +693,7 @@ appChangeHook_CheckGraph:
 				jr z,appChangeHook_GoGraph
 				dec b
 				cp kGraph
-				jr nz,appChangeHook_Invalid
+				jr nz,appChangeHook_CheckFormat
 appChangeHook_GoGraph:
 				push bc
 					ld a,SETTINGS_AVOFF_TRACE
@@ -706,6 +726,39 @@ appChangeHook_GoGraph:
 
 				; Compute graph and display initial version
 				call cxInit_3DGraph
+				bcall(_Redisp)
+
+				; Let the OS take over now and call our cxMain when necessary
+				bjump(_Mon)
+
+appChangeHook_CheckFormat:
+				cp kFormat
+				jr nz,appChangeHook_Invalid
+
+				; Set up the context
+				ld hl,FormatCxVectors
+				bcall(_AppInit)
+				;ld a,kExtApps						;If we leave cxGraph, the OS tries to draw stuff on [TRACE]
+				;ld (cxCurApp),a
+
+				; Back up the current cursor hook
+				ld a,SETTINGS_HOOKBACK_CUR
+				call LTS_GetPtr						;to hl
+				ld de,CursorHookPtr
+				ex de,hl
+				ld bc,3
+				ldir
+				ld a,(flags + hookflags2)			; contains cursorHookActive
+				and $ff^(1 << cursorHookActive)
+				ld (de),a
+				
+				; Set up new cursorhook
+				call GetCurrentPage
+				ld hl,formatCursorHook
+				bcall(_SetCursorHook)
+
+				; Compute graph and display initial version
+				call cxInit_Format
 				bcall(_Redisp)
 
 				; Let the OS take over now and call our cxMain when necessary
@@ -1332,6 +1385,7 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "graphhook.asm"
 #include "graphfuncs.asm"
 #include "tracefuncs.asm"
+#include "formathook.asm"
 #include "bigicon.inc"
 #include "data.inc"
 

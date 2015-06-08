@@ -194,26 +194,26 @@ AppIcon:
 	.db $00,$00,$01,$11,$11,$00,$00,$00
 Header_Icon_End:
 
-Text_G3DCName:
+sG3DCName:
 	.db "Graph3DC 1.0",0
-Text_G3DCDesc:
+sG3DCDesc:
 	.db "3D Graphing App",0
 
-Text_MMenu1a:
+sMMenu1a:
 	.db "1. Install App         ",0
-Text_MMenu2a:
+sMMenu2a:
 	.db "2. Cancel              ",0
 
-Text_MMenu1b:
+sMMenu1b:
 	.db "1. Reinstall/Repair App",0
-Text_MMenu2b:
+sMMenu2b:
 	.db "2. Uninstall App       ",0
-Text_MMenu3b:
+sMMenu3b:
 	.db "3. Cancel              ",0
 
 MMenu_JTable:
-	.dw Text_MMenu1a, Text_MMenu2a
-	.dw Text_MMenu1b, Text_MMenu2b, Text_MMenu3b
+	.dw sMMenu1a, sMMenu2a
+	.dw sMMenu1b, sMMenu2b, sMMenu3b
 
 GridIcon_Table:
 	.dw GridIcon_Spectrum
@@ -304,3 +304,15 @@ TraceCursor:
 	.db %01111100
 	.db %00111000
 	.db %00000000
+
+sAuthor:
+	.db "by Christopher Mitchell (",$22,"Kerm Martian",$22,")",0
+sCopyright:
+	.db "(c) 2012-2015 Cemetech",0
+sWebsite:
+	.db "http://www.cemetech.net",0
+sBuildNum:
+	.db "1.0.0 ",$7C," "
+	.db "Build "
+.incbin "buildnum.txt"
+	.db 0

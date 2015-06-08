@@ -20,19 +20,26 @@ CopyContainCoords:
 	ret
 ;============================================================
 TrashRAM_SwapIn:
-	di
-	in a,($27)
-	ld (high_bank_mask),a
-	ld a,(16384 - trash_ram_fill)/64
-	out ($27),a
-
-	in a,(5)
-	ld (high_bank_page),a
 	ld a,TRASHABLE_RAM_PAGE | $80			;RAM page to trash with a buffer
+	jr AltRAM_SwapIn
+TraceCoordBackRAM_SwapIn:
+	ld a,TRACE_COORD_RAM_PAGE | $80			;RAM page to trash with a buffer
+AltRAM_SwapIn:
+	push af
+		di
+		in a,($27)
+		ld (high_bank_mask),a
+		ld a,(16384 - trash_ram_fill)/64
+		out ($27),a
+
+		in a,(5)
+		ld (high_bank_page),a
+		pop af
 	out (5),a
 	ret
 
 TrashRAM_SwapOut:
+TraceCoordBackRAM_SwapOut:
 	ld a,(high_bank_page)		;Don't need to worry about port $D/E/F because
 	out (5),a					;$C000-$FFFF can only hold RAM pages
 	ld a,(high_bank_mask)
@@ -400,6 +407,7 @@ DrawSprite_OffscreenCheck:				;Re-used by all DrawSprite routines
 	or l
 	ret nz						;Y clipped
 
+DrawSprite_SetDataMode:
 	ld	a,$22
 	out	($10),a
 	out	($10),a

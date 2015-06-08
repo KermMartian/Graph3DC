@@ -52,16 +52,20 @@ cxMain_3DGraph:
 GraphKeyHook_Graph:
 	ld de,DELTA_ANGLE
 	cp kUp
-	jr z,KeyHook_Graph_StoreAlpha
+	jr z,GraphKeyHook_Graph_StoreAlpha
 	cp kLeft
-	jr z,KeyHook_Graph_StoreBeta
+	jr z,GraphKeyHook_Graph_StoreBeta
 	ld de,NEG_DELTA_ANGLE
 	cp kDown
-	jr z,KeyHook_Graph_StoreAlpha
+	jr z,GraphKeyHook_Graph_StoreAlpha
 	cp kRight
-	jr z,KeyHook_Graph_StoreBeta
+	jr z,GraphKeyHook_Graph_StoreBeta
 	cp kClear
-	jr z,KeyHook_Graph_RetQuit
+	jr z,GraphKeyHook_Graph_RetQuit
+	cp kAdd
+	jp z,GraphKeyHook_ZoomIn
+	cp kSub
+	jp z,GraphKeyHook_ZoomOut
 	cp kTrace
 	jr nz,GraphKeyHook_OtherKey
 	ld a,(counteqs)
@@ -73,14 +77,15 @@ GraphKeyHook_Graph:
 	ld (hl),1
 	call cxRedisp_3DGraph_PostInitTrace
 	jp GraphKeyHook_NoKey								; No key
-KeyHook_Graph_RetQuit:
+GraphKeyHook_Graph_RetQuit:
 	bjump(_JForceCmdNoChar)
-KeyHook_Graph_StoreAlpha:
+
+GraphKeyHook_Graph_StoreAlpha:
 	ld (alpha),de
-	jr KeyHook_Graph_Rerotate
-KeyHook_Graph_StoreBeta:
+	jr GraphKeyHook_Graph_Rerotate
+GraphKeyHook_Graph_StoreBeta:
 	ld (beta),de
-KeyHook_Graph_Rerotate:
+GraphKeyHook_Graph_Rerotate:
 	set graphDraw,(iy+graphFlags)
 	call SetSpeedFast
 
@@ -105,6 +110,7 @@ GraphKeyHook_Trace:
 		or a
 		jr z,GraphKeyHook_Trace_NoEqs
 		call EraseTraceCursor
+		call EraseTraceCoords
 		pop af
 	ld hl,trace_y
 	ld de,dim_y
@@ -131,7 +137,7 @@ GraphKeyHook_Trace_Trace_Display:
 	ret
 GraphKeyHook_Trace_NotTrace:
 	cp kClear
-	jr z,KeyHook_Graph_RetQuit
+	jr z,GraphKeyHook_Graph_RetQuit
 
 	push af
 		call DrawTraceCursor
@@ -169,6 +175,14 @@ GraphKeyHook_Trace_Draw:
 	call DrawTraceCoords
 	call DrawTraceCursor
 	jr GraphKeyHook_NoKey
+;-----------------------------------
+GraphKeyHook_ZoomIn:
+	call ZoomIn3D
+	bjump(_JForceGraphNoKey)
+
+GraphKeyHook_ZoomOut:
+	call ZoomOut3D
+	bjump(_JForceGraphNoKey)
 ;-----------------------------------
 GraphRedisp:
 	call SetSpeedFast

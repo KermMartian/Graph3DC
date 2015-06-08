@@ -540,20 +540,10 @@ Graph_Compute_EQ_Next:
 
 	; Note! _PutC messes this up.
 	call TrashRAM_SwapOut
-	; Clear the screen of those silly progress bars
-	ld de,(bgcolor)
-	ld b,d
-	ld c,e
-	call SetTextColors
-	ld hl,(0 * 256) + 8
-	ld (CurRow),hl
-	ld b,26*2
-Graph_Compute_EQ_ClearProgress_Loop:
-	ld a,$E0
-	push bc
-		bcall(_PutC)
-		pop bc
-	djnz Graph_Compute_EQ_ClearProgress_Loop
+	; Clear the screen of those silly progress bars (this used to use _PutC instead of a fill)
+	di								; Don't let the run indicator change our window
+	call Graph_Clear_Screen			; calls DisplayNormal
+	ei
 	call ResetColors
 	call DisableTextColors
 	call TrashRAM_SwapIn
@@ -901,6 +891,8 @@ Graph_Compute_EQ_Error_DoError:
 		ld a,tUn
 		ld (parseVar + 2),a
 		call TrashRAM_SwapOut
+		call ResetColors					; Otherwise the error title will be unreadable
+		call DisableTextColors				; Be kind.
 		pop af
 	bjump(_JError)
 ;-----------------------------------
