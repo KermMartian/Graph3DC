@@ -600,6 +600,7 @@ Draw_Sprite_2Bit_PackedLine:
 		pop	bc							;10
 	djnz Draw_Sprite_2Bit_PackedLoop	;13 if jump taken
 	ret
+#endif
 	
 ;OLD: ix -> palette, b = x, l = y, de -> sprite	
 ;NEW: de=x, hl=y, 
@@ -663,7 +664,6 @@ DrawSprite_4Bit_PackedLine:
 		pop	bc							;10
 	djnz DrawSprite_4Bit_PackedLoop	;13 if jump taken
 	ret
-#endif
 
 ;OLD: ix -> palette, b = x, l = y, de -> sprite	
 ;NEW: de=x, hl=y, 
