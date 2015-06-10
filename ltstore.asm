@@ -70,18 +70,20 @@ LTS_CreateAV:
 	xor a
 	ld (hl),a				; Offset 0: 	Mode = 0
 	inc hl
-	ld (hl),AXIS_MODE_A		; Offset 1:		Axis Mode = 0
+	ld (hl),1				; Offset 1:		Axis Mode = on
+	inc hl
+	ld (hl),a				; Offset 2:		Bounds Mode = Off
 	inc hl
 	ld (hl),a
 	inc hl
-	ld (hl),a				; Offset 2:		BGColor = $0000
+	ld (hl),a				; Offset 3:		BGColor = $0000
 	inc hl
-	ld (hl),a				; Offset 4:		Color mode = 0
+	ld (hl),a				; Offset 5:		Color mode = 0
 	inc hl
 #ifdef DEBUG_HIRES
 	ld (hl),1
 #else
-	ld (hl),0				; Offset 5:		High-res mode
+	ld (hl),0				; Offset 6:		High-res mode
 #endif
 	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_HIRES
 	add hl,de

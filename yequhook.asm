@@ -95,7 +95,7 @@ YEquHook_SpecialPlotLine_Setup:
 	
 ; Set up new cursorhook
 	xor a
-	ld (menuCurCol),a
+	ld (menuButtonNum),a
 	call GetCurrentPage
 	ld hl,yEquCursorHook
 	bcall(_SetCursorHook)
@@ -272,21 +272,21 @@ cxMain_PlotLine:
 		pop af
 	cp kRight
 	jr nz,cxMain_PlotLine_NotRight
-	ld a,(menuCurCol)
+	ld a,(menuButtonNum)
 	cp 3
 	ret z							; Already at last item
 	inc a
-cxMain_PlotLine_StoreMenuCurCol:
-	ld (menuCurCol),a
+cxMain_PlotLine_StoremenuButtonNum:
+	ld (menuButtonNum),a
 	jp cxMain_PlotLine_Redraw
 cxMain_PlotLine_NotRight:
 	cp kLeft
 	jr nz,cxMain_PlotLine_NotLeft
-	ld a,(menuCurCol)
+	ld a,(menuButtonNum)
 	or a
 	ret z
 	dec a
-	jr cxMain_PlotLine_StoreMenuCurCol
+	jr cxMain_PlotLine_StoremenuButtonNum
 
 cxMain_PlotLine_Mode1:
 		pop af
@@ -309,7 +309,7 @@ cxMain_PlotLine_Enter:
 	ld a,b				; current Mode
 	or a
 	jr nz,cxMain_PlotLine_3DMode
-	ld a,(menuCurCol)
+	ld a,(menuButtonNum)
 	cp 3
 	jr nc,cxMain_PlotLine_3DMode
 	ld e,a
@@ -373,7 +373,7 @@ yEquCursorHook_DisplayBlock:
 	ld de,COLOR_BLACK
 	ld hl,PlotLineText2
 	and 1							; SETTINGS_AVOFF_MODE byte
-	ld a,(menuCurCol)
+	ld a,(menuButtonNum)
 	push af
 		push de
 			jr nz,yEquCursorHook_DisplayBlock_NoCheckInvert

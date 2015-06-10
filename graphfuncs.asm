@@ -46,8 +46,12 @@ Graph_Setup:
 
 	ld a,SETTINGS_AVOFF_AXISMODE
 	call LTS_GetPtr
+	ld e,(hl)
+	inc hl
 	ld a,(hl)
-	ld (axismode),a
+	sla a
+	or e
+	ld (axismode),a					; Axis and bounds
 	inc hl
 	ld e,(hl)
 	inc hl

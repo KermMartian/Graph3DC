@@ -305,14 +305,36 @@ TraceCursor:
 	.db %00111000
 	.db %00000000
 
+FormatTable:
+	.db 2
+	.db MT_OPTION,SETTINGS_AVOFF_AXISMODE,1,"AxesOn",0
+	.db MT_OPTION,SETTINGS_AVOFF_AXISMODE,0,"AxesOff",0
+	.db 2
+	.db MT_OPTION,SETTINGS_AVOFF_BOUNDSMODE,1,"BoundsOn",0
+	.db MT_OPTION,SETTINGS_AVOFF_BOUNDSMODE,0,"BoundsOff",0
+	.db 4
+	.db MT_TEXT,"Color:",0
+	.db MT_OPTION,SETTINGS_AVOFF_COLOR,0,"Full",0
+	.db MT_OPTION,SETTINGS_AVOFF_COLOR,1,"Blues",0
+	.db MT_OPTION,SETTINGS_AVOFF_COLOR,2,"Flame",0
+	.db 3
+	.db MT_TEXT,"Background:",0
+	.db MT_OPTIONW,SETTINGS_AVOFF_BGCOLOR,$ff,$ff,"White",0
+	.db MT_OPTIONW,SETTINGS_AVOFF_BGCOLOR,$00,$00,"Black",0
+	.db 2
+	.db MT_OPTION,SETTINGS_AVOFF_LABEL,0,"LabelOff",0
+	.db MT_OPTION,SETTINGS_AVOFF_LABEL,1,"LabelOn",0
+	.db 0
+
 sAuthor:
-	.db "by Christopher Mitchell (",$22,"Kerm Martian",$22,")",0
+	.db "by Christopher Mitchell",0
+
 sCopyright:
 	.db "(c) 2012-2015 Cemetech",0
 sWebsite:
 	.db "http://www.cemetech.net",0
 sBuildNum:
-	.db "1.0.0 ",$7C," "
+	.db "Version 1.0.0 ",$7C," "
 	.db "Build "
 .incbin "buildnum.txt"
 	.db 0

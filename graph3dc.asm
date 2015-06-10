@@ -29,6 +29,7 @@
 ; [X] Fix rendering when you leave via a menu and then return
 ; [X] Add some kind of graphDirty flag for switching between trace and graph.
 ; [X] +/- zooming from graph mode
+; [ ] Apply graphhook key fixes to formathook and vice versa so all keys work right
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Fix bug in Y= menu when entering a menu or using Rcl.
@@ -46,6 +47,7 @@
 ; [ ] Erase progress bars using a fill
 ; [ ] Reset colors before possible error message in graph computation
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
+; [ ] Test in splitscreen mode, including Format, Window, Zoom, Y=, Graph
 ; [ ] Lots of beta-testing!
 
 .echo "-----------------------\n"
@@ -168,6 +170,11 @@ temp3	.equ plotSScreen
 .var byte, thisXiters
 .var byte, completeXiters
 
+; For multiMenu
+.var byte, menuCurCol
+.var byte, menuCurRow
+.var byte, menuItemSelected
+
 ; The following are pointers to *not the beginning* that are moved as rendering progresses
 .var word, pgrid_x				;Pointer to variable data	3*MAX_EQS*MAX_XY_RES*MAX_XY_RES*2
 .var word, pgrid_y				;Pointer to variable data
@@ -233,29 +240,36 @@ temp3	.equ plotSScreen
 #define SETTINGS_AV_SIZE		128
 #define SETTINGS_AVOFF_MODE		0				;1 byte
 #define SETTINGS_AVOFF_AXISMODE	1				;1 byte
-#define SETTINGS_AVOFF_BGCOLOR	2				;2 bytes
-#define SETTINGS_AVOFF_COLOR	4				;1 byte
-#define SETTINGS_AVOFF_HIRES	5				;1 byte
-#define SETTINGS_AVOFF_XDIM		6				;1 byte
-#define SETTINGS_AVOFF_YDIM		7				;1 byte
-#define SETTINGS_AVOFF_SCALEF	8				;2 bytes
-#define SETTINGS_AVOFF_ZOOMF	10				;2 bytes
-#define SETTINGS_AVOFF_MINX		12				;2 bytes
-#define SETTINGS_AVOFF_MINY		14				;2 bytes
-#define SETTINGS_AVOFF_MAXX		16				;2 bytes
-#define SETTINGS_AVOFF_MAXY		18				;2 bytes
-#define SETTINGS_HOOKBACK_WIN	20				;4 bytes  - WindowHook backup
-#define SETTINGS_HOOKBACK_YEQU	24				;4 bytes  - YEquHook backup
-#define SETTINGS_HOOKBACK_CUR	28				;4 bytes  - CursorHook backup
-#define SETTINGS_MONVECBACK		32				;13 bytes - Monitor vector backup
-#define SETTINGS_HOOKBACK_APP	45				;4 bytes  - AppChangeHook backup
-#define SETTINGS_HOOKBACK_MENU	49				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_GRPH	53				;4 bytes  - GraphHook backup
-#define SETTINGS_HOOKBACK_KEY	57				;4 bytes  - KeyHook backup
-#define SETTINGS_HOOKBACK_REDISP 61				;4 bytes  - cxRedispHook backup
-#define SETTINGS_HOOKBACK_XXXX	65				;4 bytes  - NOT USED backup
-#define SETTINGS_AVOFF_MAXEQS	69				;1 byte
-#define SETTINGS_AVOFF_TRACE	70				;1 byte   - 1 if tracing, 0 otherwise
+#define SETTINGS_AVOFF_BOUNDSMODE 2				;1 byte
+#define SETTINGS_AVOFF_BGCOLOR	3				;2 bytes
+#define SETTINGS_AVOFF_COLOR	5				;1 byte
+#define SETTINGS_AVOFF_HIRES	6				;1 byte
+#define SETTINGS_AVOFF_XDIM		7				;1 byte
+#define SETTINGS_AVOFF_YDIM		8				;1 byte
+#define SETTINGS_AVOFF_SCALEF	9				;2 bytes
+#define SETTINGS_AVOFF_ZOOMF	11				;2 bytes
+#define SETTINGS_AVOFF_MINX		13				;2 bytes
+#define SETTINGS_AVOFF_MINY		15				;2 bytes
+#define SETTINGS_AVOFF_MAXX		17				;2 bytes
+#define SETTINGS_AVOFF_MAXY		19				;2 bytes
+#define SETTINGS_HOOKBACK_WIN	21				;4 bytes  - WindowHook backup
+#define SETTINGS_HOOKBACK_YEQU	25				;4 bytes  - YEquHook backup
+#define SETTINGS_HOOKBACK_CUR	29				;4 bytes  - CursorHook backup
+#define SETTINGS_MONVECBACK		33				;13 bytes - Monitor vector backup
+#define SETTINGS_HOOKBACK_APP	46				;4 bytes  - AppChangeHook backup
+#define SETTINGS_HOOKBACK_MENU	50				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_GRPH	54				;4 bytes  - GraphHook backup
+#define SETTINGS_HOOKBACK_KEY	58				;4 bytes  - KeyHook backup
+#define SETTINGS_HOOKBACK_REDISP 62				;4 bytes  - cxRedispHook backup
+#define SETTINGS_HOOKBACK_XXXX	66				;4 bytes  - NOT USED backup
+#define SETTINGS_AVOFF_MAXEQS	70				;1 byte
+#define SETTINGS_AVOFF_TRACE	71				;1 byte   - 1 if tracing, 0 otherwise
+#define SETTINGS_AVOFF_LABEL	72				;1 byte 
+
+; Used for the menu table
+#define MT_TEXT		0
+#define MT_OPTION	1
+#define MT_OPTIONW	2
 
 capacity_3d_el = sMAX(MAX_EQS * MAX_XY_RES * MAX_XY_RES, MAX_EQS_HI * MAX_XY_RES_HI * MAX_XY_RES_HI)
 capacity_2d_el = sMAX(MAX_XY_RES * MAX_XY_RES, MAX_XY_RES_HI * MAX_XY_RES_HI)
@@ -327,7 +341,8 @@ monQueue		.equ	$8669
 PlotEnabled1	.equ	$9812
 PlotEnabled2	.equ	$9824
 PlotEnabled3	.equ	$9836
-menuCurCol		.equ	$9d83
+maybe_menuGraphicalID .equ	$9d82	;Not currently used
+menuButtonNum	.equ	$9d83
 _ClearAppTitle	.equ	$56B3		;5056h
 _maybe_MonRestart .equ	$4fba
 mZoom			.equ	04h
@@ -433,14 +448,20 @@ ProgramStart_appInstalled:
 		call PutsApp						; Display App name
 		ld hl,98
 		ld (pencol),hl
-		ld a,76								; d set to 0 by previous ld de
+		ld a,76
 		ld (penrow),a
 		ld hl,sG3DCDesc
 		call VPutsApp						; Display small description text below
-		ld b,4
-		ld a,189
+		ld hl,98
+		ld (pencol),hl
+		ld a,88
 		ld (penrow),a
 		ld hl,sAuthor
+		call VPutsApp						; Display small description text below
+		ld b,3
+		ld a,201
+		ld (penrow),a
+		ld hl,sCopyright
 ProgramStart_BottomTextLoop:
 		ld de,1
 		ld (pencol),de
@@ -1386,6 +1407,7 @@ Graph_Map_EQ_Inner_StoreReloop:
 #include "graphfuncs.asm"
 #include "tracefuncs.asm"
 #include "formathook.asm"
+#include "multimenu.asm"
 #include "bigicon.inc"
 #include "data.inc"
 
