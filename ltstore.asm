@@ -14,10 +14,12 @@ LTS_GetWord:
 	ret
 
 LTS_GetPtr:
-	ld e,a
-	ld d,0
-	ld hl,(lts_av)
-	add hl,de
+	push de
+		ld e,a
+		ld d,0
+		ld hl,(lts_av)
+		add hl,de
+		pop de
 	ret
 
 LTS_CacheAV:
@@ -74,9 +76,9 @@ LTS_CreateAV:
 	inc hl
 	ld (hl),a				; Offset 2:		Bounds Mode = Off
 	inc hl
-	ld (hl),a
+	ld (hl),$ff
 	inc hl
-	ld (hl),a				; Offset 3:		BGColor = $0000
+	ld (hl),$ff				; Offset 3:		BGColor = $0000
 	inc hl
 	ld (hl),a				; Offset 5:		Color mode = 0
 	inc hl

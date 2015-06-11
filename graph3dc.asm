@@ -29,14 +29,16 @@
 ; [X] Fix rendering when you leave via a menu and then return
 ; [X] Add some kind of graphDirty flag for switching between trace and graph.
 ; [X] +/- zooming from graph mode
-; [ ] Apply graphhook key fixes to formathook and vice versa so all keys work right
+; [-] Fix 2D graphing freezing after entering a 3D equation (Cannot replicate...?)
+; [X] Implement Format menu
+; [X] Implement Tracing
+; [X] Apply graphhook key fixes to formathook and vice versa so all keys work right
+; [ ] Fix erasing behind Format menu
+; [ ] Fix redrawing Format menu after other menu -> change cxCurApp?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Fix bug in Y= menu when entering a menu or using Rcl.
 ; [ ] Explain what's happening while computation is underway
-; [ ] Fix 2D graphing freezing after entering a 3D equation
-; [ ] Implement Format menu
-; [ ] Implement Tracing
 ; [ ] Add tip for equation entry in Y= menu
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
@@ -265,6 +267,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_MAXEQS	70				;1 byte
 #define SETTINGS_AVOFF_TRACE	71				;1 byte   - 1 if tracing, 0 otherwise
 #define SETTINGS_AVOFF_LABEL	72				;1 byte 
+#define SETTINGS_AVOFF_CXCUR	73				;1 byte   - current context, used for when we need to rename the current mode
 
 ; Used for the menu table
 #define MT_TEXT		0
@@ -656,6 +659,7 @@ appChangeHook:
 				ld a,c
 				cp kYequ
 				jr nz,appChangeHook_CheckMode
+				call SetCXCur
 
 				; Back up the current YequHook
 				ld a,SETTINGS_HOOKBACK_YEQU
@@ -721,8 +725,11 @@ appChangeHook_GoGraph:
 					call LTS_GetPtr					;to hl
 					pop af
 				ld (hl),a							;Whether tracing is enabled
+				ld a,kGraph
+				call SetCXCur
 				
 				; Set up the context
+				bcall(_PutAway)
 				ld hl,GraphCxVectors
 				bcall(_AppInit)
 				ld a,kExtApps						;If we leave cxGraph, the OS tries to draw stuff on [TRACE]
@@ -755,8 +762,10 @@ appChangeHook_GoGraph:
 appChangeHook_CheckFormat:
 				cp kFormat
 				jr nz,appChangeHook_Invalid
+				call SetCXCur
 
 				; Set up the context
+				bcall(_PutAway)
 				ld hl,FormatCxVectors
 				bcall(_AppInit)
 				;ld a,kExtApps						;If we leave cxGraph, the OS tries to draw stuff on [TRACE]
@@ -855,6 +864,14 @@ DisableHook:
 	lddr
 	ret
 
+SetCXCur:
+	push af
+		ld a,SETTINGS_AVOFF_CXCUR
+		call LTS_GetPtr
+		pop af
+	ld (hl),a
+	ret
+
 ;-----------------------------------
 ; Hook Chainer is used to chain hooks
 ; Arguments:
@@ -912,43 +929,6 @@ HookChainer_Continue:
 	ex (sp),hl
 	ret
 
-;-----------------------------------
-Menu4_GraphModify_ShowAxes:
-	call Graph_Erase
-	ld a,(axismode)
-	inc a
-	cp MAX_AXIS_MODES
-	jr nz,Menu4_GraphModify_ShowAxes_Save
-	xor a
-Menu4_GraphModify_ShowAxes_Save:
-	ld (axismode),a
-	ret
-	;jp Menu_4_Redraw
-
-Menu4_GraphModify_GraphColor:
-	call Graph_Erase
-	ld a,(colormode)
-	inc a
-	cp MAX_COLOR_MODES
-	jr nz,Menu4_GraphModify_GraphColor_Save
-	xor a
-Menu4_GraphModify_GraphColor_Save:
-	ld (colormode),a
-	ret
-	;jp Graph_Recolor
-
-Menu4_GraphModify_ToggleAll:
-	;TODO
-	ret
-	;jp Menu_4_Redraw
-
-Menu4_GraphModify_BGColor:
-	ld hl,(bgcolor)
-	ld a,h \ cpl \ ld h,a
-	ld a,l \ cpl \ ld l,a
-	ld (bgcolor),hl
-	ret
-	;jp Menu_4_Redraw
 ;============================================================
 Graph_Erase:
 	; Determine the number of segment draws needed to erase

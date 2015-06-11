@@ -31,6 +31,7 @@ MenuHook_NotSelected3D:
 	or a
 	jr z,ZoomHook_RetZSet					; Don't trigger our menu if 3D mode is not on
 	
+	call DisplayAppTitle
 	ld hl,ZoomMenuTable
 	ld de,RAMCode
 	ld bc,ZoomMenuTableEnd-ZoomMenuTable
@@ -57,12 +58,19 @@ ZoomHook_Not1:
 	; and are now returning to the graph
 	ld a,b
 	or a
-	jr nz,ZoomHook_Not3
-	call LTS_CacheAV
-	ld a,SETTINGS_AVOFF_MODE
-	call LTS_GetByte
+	jr nz,ZoomHook_RetZSet
+	push bc
+		call LTS_CacheAV
+		ld a,SETTINGS_AVOFF_MODE
+		call LTS_GetByte
+		pop bc
 	or a
 	ret z					; 3D mode is not enabled
+	ld a,SETTINGS_AVOFF_CXCUR
+	call LTS_GetByte
+	cp kGraph
+	jr nz,ZoomHook_RetZSet	; Current context is not our graph context
+
 	;bcall(_MenCatRet)		; This has too many side effects; replaced with the following
 	xor a
 	ld hl,menuCurrent

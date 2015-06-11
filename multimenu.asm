@@ -222,6 +222,7 @@ MultiMenu_DrawCursor_CheckHighlighted:
 MultiMenu_DrawCursor_SetColors:
 	call MultiMenu_AdvanceToText
 	call PutsColored
+	call ResetColors
 	ret
 	
 ;===========MultiMenu_SkipToRowCol===============

@@ -48,7 +48,7 @@ cxMain_3DGraph:
 		or a
 		pop bc
 	ld a,b
-	jr nz,GraphKeyHook_Trace
+	jp nz,GraphKeyHook_Trace
 GraphKeyHook_Graph:
 	ld de,DELTA_ANGLE
 	cp kUp
@@ -98,10 +98,18 @@ GraphKeyHook_Graph_Rerotate:
 	jr GraphKeyHook_NoKey
 
 GraphKeyHook_OtherKey:
+KeyHook_OtherKey:
 	cp kClear
-	jr nz,KeyHook_Graph_NotClear
+	jr nz,KeyHook_NotClear
 	bjump(_JForceCmdNoChar)
-KeyHook_Graph_NotClear:
+KeyHook_NotClear:
+	cp appStart
+	jr c,KeyHook_OtherForceCmd
+	cp echoStart1
+	jr nc,KeyHook_OtherForceCmd
+	bcall(_NewContext0)
+	bjump(_Mon)
+KeyHook_OtherForceCmd:
 	bjump(_JForceCmd)
 ;-----------------------------------
 GraphKeyHook_Trace:
@@ -137,7 +145,7 @@ GraphKeyHook_Trace_Trace_Display:
 	ret
 GraphKeyHook_Trace_NotTrace:
 	cp kClear
-	jr z,GraphKeyHook_Graph_RetQuit
+	jp z,GraphKeyHook_Graph_RetQuit
 
 	push af
 		call DrawTraceCursor
