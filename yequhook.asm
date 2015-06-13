@@ -107,7 +107,10 @@ YEquHook_SetZRet:
 	ret
 
 YEquHook_Full:
-		ld a,$0f & (tZ1 + MAX_EQS)
+		ld a,SETTINGS_AVOFF_MAXEQS
+		call LTS_GetByte
+		add a,tZ1
+		and $0f								; was ld a,$0f & (tZ1 + MAX_EQS)
 		ld (EQS + 6),a
 
 		pop af

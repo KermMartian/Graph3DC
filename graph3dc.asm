@@ -34,6 +34,8 @@
 ; [X] Implement Tracing
 ; [X] Apply graphhook key fixes to formathook and vice versa so all keys work right
 ; [X] Fix redrawing Format menu after other menu -> change cxCurApp? Yep, that did it.
+; [/] Display proper number of equations based on mode
+; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
 ; [ ] Fix erasing behind Format menu
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
@@ -41,9 +43,7 @@
 ; [ ] Explain what's happening while computation is underway
 ; [ ] Add tip for equation entry in Y= menu
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
 ; [ ] Set default res to 17/27 when switching modes
-; [ ] Display proper number of equations based on mode
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
 ; [ ] Erase progress bars using a fill

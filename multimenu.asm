@@ -169,34 +169,40 @@ MultiMenu_HandleKey_NotDown:
 	; Handle [ENTER]
 	push hl
 		push ix
-			call MultiMenu_SkipToRowCol
-			ld a,(hl)
-			inc hl
-			ld e,(hl)
-			ld d,0
-			inc hl
-			cp MT_OPTIONW
-			jr z,MultiMenu_HandleKey_Enter_TwoByte
-			cp MT_OPTION
-			jr nz,MultiMenu_HandleKey_HandledEnter				; ??? should not happen! If it does, this code is outdated
-			add ix,de
-			ld a,(hl)
-			ld (ix),a
-			jr MultiMenu_HandleKey_HandledEnter
+			push de
+				call MultiMenu_SkipToRowCol
+				ld a,(hl)
+				inc hl
+				ld e,(hl)
+				ld d,0
+				inc hl
+				cp MT_OPTIONW
+				jr z,MultiMenu_HandleKey_Enter_TwoByte
+				cp MT_OPTION
+				jr nz,MultiMenu_HandleKey_HandledEnter				; ??? should not happen! If it does, this code is outdated
+				add ix,de
+				ld a,(hl)
+				ld (ix),a
+				jr MultiMenu_HandleKey_HandledEnter
 MultiMenu_HandleKey_Enter_TwoByte:
-			add ix,de
-			ld a,(hl)
-			ld (ix),a
-			inc hl
-			inc ix
-			ld a,(hl)
-			ld (ix),a
+				add ix,de
+				ld a,(hl)
+				ld (ix),a
+				inc hl
+				inc ix
+				ld a,(hl)
+				ld (ix),a
 MultiMenu_HandleKey_HandledEnter:
+				pop hl
+			call callhl
 			pop ix
 		pop hl
 	call MultiMenu_Redisplay
 	cp a
 	ret
+	
+callhl:
+	jp (hl)
 
 ;===========MultiMenu_DrawCursor=================
 ; Inputs:
