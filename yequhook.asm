@@ -150,7 +150,16 @@ yEquHook_Not2:
 	ld a,36
 	ld (penrow),a
 	call vputsapp
-
+	
+	ld a,(winBtm)
+	dec a
+	ld hl,CurRow
+	ld (hl),a
+	inc hl
+	ld (hl),0
+	ld hl,sYequExplain
+	call VPutsApp
+	
 	; Set max equations
 	ld a,(EQS + 7)
 	cp tZ1

@@ -192,16 +192,32 @@ Graph_Recolor:
 	dec hl						;This makes negate_hl equivalent to cpl hl
 	ld (fgcolor),hl
 	ex de,hl					;Get fgcolor
-	ld hl,(0 * 256) + 8
+	ld a,(winBtm)				; winBtm - 2 -> curRow, 0 -> curCol
+	dec a
+	dec a
+	ld l,a
+	ld h,0
 	ld (CurRow),hl
 	ld bc,(bgcolor)
 	ld hl,sTotalProgress
 	push bc
 		push de
 			call PutsColored
+
 			pop de
 		pop bc
-	ld hl,sPartialProgress
+	push bc
+		push de
+			ld hl,sPartialProgress
+			call PutsColored
+
+			pop de
+		pop bc
+	ld a,(winTop)
+	ld l,a
+	ld h,0
+	ld (curRow),hl
+	ld hl,sGraphExplain
 	call PutsColored
 
 	; Initialize pointers into big stored data chunks
@@ -302,7 +318,10 @@ Graph_Compute_EQ:
 		ld de,(bgcolor)
 		push de
 			; Draw the subscripted number for this equation
-			ld hl,(1*256) + 9
+			ld a,(winBtm)
+			dec a
+			ld l,a
+			ld h,1
 			ld (CurRow),hl
 			ld a,(ParseVar + 2)
 			add a,$81-tZ1
@@ -483,7 +502,10 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			bcall(_StoY)
 
 			; Display some progress for this equation
-			ld hl,((25-PROGRESS_WIDTH) * 256) + 9
+			ld a,(winBtm)
+			dec a
+			ld l,a
+			ld h,25-PROGRESS_WIDTH
 			ld (CurRow),hl
 			ld hl,thisXiters
 			inc (hl)
@@ -507,7 +529,11 @@ Graph_Compute_EQ_SetProgressLoop:
 Graph_Compute_EQ_SetProgressLoop_Done:
 			
 			; Display some progress for overall equations
-			ld hl,((25-PROGRESS_WIDTH) * 256) + 8
+			ld a,(winBtm)
+			dec a
+			dec a
+			ld l,a
+			ld h,25-PROGRESS_WIDTH
 			ld (CurRow),hl
 			ld hl,completeXiters
 			inc (hl)

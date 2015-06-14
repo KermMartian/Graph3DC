@@ -342,3 +342,9 @@ sBuildNum:
 	.db "Build "
 .incbin "buildnum.txt"
 	.db 0
+
+sYequExplain:
+	.db "Use X and Y as indep vars",0
+sGraphExplain:
+	.db "Precomputing each Z value ",
+	.db "at each X and Y coordinate",0

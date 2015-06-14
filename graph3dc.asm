@@ -34,20 +34,24 @@
 ; [X] Implement Tracing
 ; [X] Apply graphhook key fixes to formathook and vice versa so all keys work right
 ; [X] Fix redrawing Format menu after other menu -> change cxCurApp? Yep, that did it.
-; [/] Display proper number of equations based on mode
-; [/] Add high-resolution, 2-equation mode -> set starting res properly based on mode
-; [ ] Fix erasing behind Format menu
+; [X] Display proper number of equations based on mode
+; [X] Add high-resolution, 2-equation mode -> set starting res properly based on mode
+; [X] Set default res to 17/27 when switching modes
+; [X] Erase progress bars using a fill
+; [X] Reset colors before possible error message in graph computation
+; [X] Fix resetting window when entering the Format menu
+; [X] Fix erasing behind Format menu
+; [X] Fix flashing trace cursor when no equations are enabled
+; [X] Fix memory leak on context change out of Graph or Format mode
+; [-] Fix bug in Y= menu when entering a menu or using Rcl. -> Unable to replicate
+; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
-; [ ] Fix bug in Y= menu when entering a menu or using Rcl.
 ; [ ] Explain what's happening while computation is underway
 ; [ ] Add tip for equation entry in Y= menu
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [ ] Set default res to 17/27 when switching modes
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
-; [ ] Erase progress bars using a fill
-; [ ] Reset colors before possible error message in graph computation
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ; [ ] Test in splitscreen mode, including Format, Window, Zoom, Y=, Graph
 ; [ ] Lots of beta-testing!

@@ -27,7 +27,7 @@ MultiMenu_Redisplay:
 MultiMenu_Redisplay_NextRow:
 	ld a,(hl)					; 0 items means this "row" marks the end
 	or a
-	ret z
+	jp z,MultiMenu_Redisplay_Finish
 	ld b,a
 	inc hl
 MultiMenu_Redisplay_Row:
@@ -100,7 +100,10 @@ MultiMenu_Redisplay_NextColumn:
 		ld (hl),0									; Left column
 		pop hl
 	jp MultiMenu_Redisplay_NextRow
-	
+MultiMenu_Redisplay_Finish:
+	bcall(_EraseEOW)
+	ret
+
 ;===========MultiMenu_HandleKey==================
 ; Inputs:
 ; - hl = pointer to specially-formatted table

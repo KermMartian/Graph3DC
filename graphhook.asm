@@ -21,12 +21,15 @@ cxRedisp_3DGraph:
 
 	; Check if tracing is enabled and we have enabled equations
 	ld a,SETTINGS_AVOFF_TRACE
-	call LTS_GetByte
+	call LTS_GetPtr
+	ld a,(hl)
+	ld (hl),0								; Tracing disabled
 	or a
 	jr z,cxRedisp_3DGraph_PostInitGraph
 	ld a,(counteqs)
 	or a
 	jr z,cxRedisp_3DGraph_PostInitGraph
+	ld (hl),1								; Tracing actually enabled
 
 cxRedisp_3DGraph_PostInitTrace:
 	call DrawTraceEquation
@@ -107,8 +110,12 @@ KeyHook_NotClear:
 	jr c,KeyHook_OtherForceCmd
 	cp echoStart1
 	jr nc,KeyHook_OtherForceCmd
+	ld sp,(onSP)
+	; a still contains key -> new context to load
 	bcall(_NewContext0)
-	bjump(_Mon)
+	xor a
+	bjump(_SendKpress)
+
 KeyHook_OtherForceCmd:
 	bjump(_JForceCmd)
 ;-----------------------------------
