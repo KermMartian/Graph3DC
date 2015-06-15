@@ -56,11 +56,12 @@ Graph_Setup:
 	ld e,(hl)
 	inc hl
 	ld d,(hl)
-	ld (bgcolor),de
+	ld (bgcolor),de					; set background color
 	inc hl
 	ld a,(hl)
 	ld (colormode),a
-	
+	call ResetGraphFGColor			; set foreground color from background color
+
 	ld a,SETTINGS_AVOFF_LABEL		; Axis labels
 	call LTS_GetByte
 	ld (labelmode),a
@@ -1087,10 +1088,7 @@ Graph_Redraw:
 	ld (cz),hl
 	
 	; Set foreground and background colors
-	ld hl,(bgcolor)
-	call negate_hl
-	dec hl						;This makes negate_hl equivalent to cpl hl
-	ld (fgcolor),hl
+	call ResetGraphFGColor
 
 	; Center was set above, (ex, ey); FP_EZ is a constant
 	; Ready to transform 3D coordinates into screen coordinates and display
@@ -1118,10 +1116,7 @@ Graph_Redraw:
 	rrca
 	push af
 		jr nc,Graph_Draw_Redraw_NoAxes
-		ld hl,(bgcolor)
-		call negate_hl
-		dec hl						;This makes negate_hl equivalent to cpl hl
-		ld (fgcolor),hl
+		call ResetGraphFGColor			; set foreground color from background color
 		ld hl,Offsets_Axes
 		ld b,AXES_BOUND_PAIRS_AXES
 		call Graph_Render_FromOffsets
@@ -1879,8 +1874,12 @@ GetEnabledEqLoop:
 	inc c
 	jr GetEnabledEqLoop
 
+;===========RenderAxisLabels========================================
+; Inputs:
+;  - a = $80 for labels behind graph, $00 for labels in front
+; Outputs:
+;  - Displays 0 to 3 axis labels
 ;===================================================================
-; Argument: a = $80 for labels behind graph, $00 for labels in front
 RenderAxisLabels:
 	ld c,a
 	ld a,(labelmode)
@@ -1888,6 +1887,7 @@ RenderAxisLabels:
 	ret z
 	push bc
 		call DisplayOrg				; Fix org mode and window
+		call ResetGraphFGColor			; set foreground color from background color
 		pop bc
 
 	ld b,3
@@ -1971,4 +1971,11 @@ RenderAxisLabels_Loop_Next:
 	inc hl
 	inc hl
 	djnz RenderAxisLabels_Loop
+	ret
+	
+ResetGraphFGColor:
+	ld hl,(bgcolor)
+	call negate_hl
+	dec hl						;This makes negate_hl equivalent to cpl hl
+	ld (fgcolor),hl
 	ret
