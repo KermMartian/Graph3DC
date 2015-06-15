@@ -61,8 +61,12 @@ Graph_Setup:
 	ld a,(hl)
 	ld (colormode),a
 	
+	ld a,SETTINGS_AVOFF_LABEL		; Axis labels
+	call LTS_GetByte
+	ld (labelmode),a
+
 	; Load screen constants
-	ld hl,30
+	ld hl,PXLMINY_WITHSTATUS
 	ld (pxlMinY),hl
 	ld hl,(0.5*(5/4))*INT_TO_8P8
 	ld (MapFactorX),hl
@@ -78,7 +82,7 @@ Graph_Setup:
 Graph_Clear_Screen:	
 	call DisplayNormal
 	call Full_Window
-	ld a,$20
+	ld a,PXLMINY_WITHSTATUS
 	ld hl,(PxlMinY)		; set write Y coordinate
 	call Write_Display_Control
 	ld a,$50
@@ -187,11 +191,6 @@ Graph_Recolor:
 	xor a
 	ld (completeXiters),a
 
-	ld hl,(bgcolor)
-	call negate_hl
-	dec hl						;This makes negate_hl equivalent to cpl hl
-	ld (fgcolor),hl
-	ex de,hl					;Get fgcolor
 	ld a,(winBtm)				; winBtm - 2 -> curRow, 0 -> curCol
 	dec a
 	dec a
@@ -199,6 +198,7 @@ Graph_Recolor:
 	ld h,0
 	ld (CurRow),hl
 	ld bc,(bgcolor)
+	ld de,(fgcolor)				;Get fgcolor
 	ld hl,sTotalProgress
 	push bc
 		push de
@@ -593,8 +593,14 @@ Graph_Compute_EQ_Next:
 			ld (negsub_min_x),hl
 			pop de
 		pop hl
-	call subhlde_fp
-	ld (sub_max_x),hl
+	push hl
+		push de
+			call subhlde_fp
+			ld (sub_max_x),hl
+			pop de
+		pop hl
+	call addhlde_fp
+	ld (sup_max_x),hl
 
 	ld hl,(max_y)
 	push hl
@@ -612,8 +618,14 @@ Graph_Compute_EQ_Next:
 				pop de
 			pop bc
 		pop hl
-	call subhlde_fp
-	ld (sub_max_y),hl
+	push hl
+		push de
+			call subhlde_fp
+			ld (sub_max_y),hl
+			pop de
+		pop hl
+	call addhlde_fp
+	ld (sup_max_y),hl
 
 	ld hl,(val_max_z)
 	push hl
@@ -626,8 +638,14 @@ Graph_Compute_EQ_Next:
 		ld bc,$0010
 		call signed_multbcde_fp
 		pop hl
-	call subhlde_fp
-	ld (sub_max_z),hl
+	push hl
+		push de
+			call subhlde_fp
+			ld (sub_max_z),hl
+			pop de
+		pop hl
+	call addhlde_fp
+	ld (sup_max_z),hl
 
 	ld hl,$0000
 	ld (val_zero),hl
@@ -1068,12 +1086,15 @@ Graph_Redraw:
 	call negate_hl
 	ld (cz),hl
 	
+	; Set foreground and background colors
+	ld hl,(bgcolor)
+	call negate_hl
+	dec hl						;This makes negate_hl equivalent to cpl hl
+	ld (fgcolor),hl
+
 	; Center was set above, (ex, ey); FP_EZ is a constant
 	; Ready to transform 3D coordinates into screen coordinates and display
 
-	xor a
-	call Graph_Render
-	
 	ld hl,axes_x
 	ld (pgrid_x),hl
 	ld hl,axes_y
@@ -1087,6 +1108,12 @@ Graph_Redraw:
 	ld b,AXES_BOUND_COORDS
 	call Map_B_Points
 	
+	ld a,$80
+	call RenderAxisLabels			; Render labels behind graph
+	xor a							; erasemode = 0 = don't erase
+	call Graph_Render				; Render the grid itself
+
+	; Render axes and bounds
 	ld a,(axismode)
 	rrca
 	push af
@@ -1096,7 +1123,7 @@ Graph_Redraw:
 		dec hl						;This makes negate_hl equivalent to cpl hl
 		ld (fgcolor),hl
 		ld hl,Offsets_Axes
-		ld b,9
+		ld b,AXES_BOUND_PAIRS_AXES
 		call Graph_Render_FromOffsets
 Graph_Draw_Redraw_NoAxes:
 		pop af
@@ -1105,10 +1132,12 @@ Graph_Draw_Redraw_NoAxes:
 	ld hl,COLOR_GRAY
 	ld (fgcolor),hl
 	ld hl,Offsets_Bounds
-	ld b,12
+	ld b,AXES_BOUND_PAIRS_BOUNDS
 	call Graph_Render_FromOffsets
 Graph_Draw_Redraw_NoBounds:
 
+	xor a
+	call RenderAxisLabels			; Render labels in front of graph
 	call TrashRAM_SwapOut
 	ret
 
@@ -1414,8 +1443,12 @@ Graph_Erase:
 	ld b,12
 	call Graph_Render_FromOffsets
 @:
+	xor a
+	call RenderAxisLabels	; Erase labels in front of graph
 	ld a,1
 	call Graph_Render
+	ld a,$80
+	call RenderAxisLabels	; Erase labels behind graph
 	call TrashRAM_SwapOut
 	ret
 ;============================================================
@@ -1751,7 +1784,7 @@ Map_B_Points:
 		
 		;hl = (val_z)
 		ld de,FP_EZ
-		call cphlde_fp
+		call cphlde_fp				; *Preserves* hl and de now.
 		jr c,Graph_Map_EQ_Inner_Cull
 		ex de,hl		;de = (val_z)
 		ld a,(FP_EZ*(5/4))>>4			; Funky math here: FP_EZ*5/4 = 0x0140, val_z >= FP_EZ*(4/5), so get 4 more bits of precision
@@ -1827,3 +1860,115 @@ Graph_Map_EQ_Inner_StoreReloop:
 	jp nz,Map_B_Points
 	ret
 
+GetEnabledEq:
+	ld c,tZ1
+	ld b,a
+	ld hl,eq_en_cache
+GetEnabledEqLoop:
+	ld a,(hl)
+	inc hl
+	inc c
+	or a
+	jr z,GetEnabledEqLoop
+	dec c
+	ld a,b
+	or a
+	ld a,c
+	ret z
+	dec b
+	inc c
+	jr GetEnabledEqLoop
+
+;===================================================================
+; Argument: a = $80 for labels behind graph, $00 for labels in front
+RenderAxisLabels:
+	ld c,a
+	ld a,(labelmode)
+	or a
+	ret z
+	push bc
+		call DisplayOrg				; Fix org mode and window
+		pop bc
+
+	ld b,3
+	ld hl,Offsets_AxesMax
+RenderAxisLabels_Loop:
+	push bc
+		push hl
+			ld e,(hl)
+			ld d,0
+			ld hl,axes_z
+			add hl,de
+			add hl,de
+			ld e,(hl)
+			inc hl
+			ld d,(hl)
+			inc hl
+			ld a,(hl)
+			inc hl
+			ld h,(hl)
+			ld l,a								; de = max z, hl = min z
+			call cphlde_fp						; nc: min >= max; c: min < max
+			ld a,0
+			rr a									; roll carry into high bit of a
+			xor c
+			pop hl
+		push hl
+			jr nz,RenderAxisLabels_Loop_Next
+			; Render away!
+			inc hl
+			ld e,(hl)
+			ld d,0
+			ld hl,axes_sx
+			add hl,de
+			add hl,de
+			ld a,(hl)
+			inc hl
+			ld h,(hl)
+			ld l,a
+			dec hl
+			dec hl
+			dec hl
+			bit 7,h
+			jr nz,RenderAxisLabels_Loop_Next		; x coordinate is offscreen left
+			push de
+				ld de,312
+				call cphlde
+				pop de
+			jr nc,RenderAxisLabels_Loop_Next		; x coordinate is offscreen right
+			ld (pencol),hl
+			ld hl,axes_sy
+			add hl,de
+			add hl,de
+			ld a,(hl)
+			inc hl
+			ld h,(hl)
+			ld l,a
+			ld de,-6
+			add hl,de
+			ld de,PXLMINY_WITHSTATUS
+			call cphlde
+			jr c,RenderAxisLabels_Loop_Next			; y coordinate is offscreen top
+			ld de,240-12
+			call cphlde
+			jr nc,RenderAxisLabels_Loop_Next		; y coordinate is offscreen bottom
+			ld a,l
+			ld (penrow),a
+			pop hl
+		push hl
+			ld e,(hl)
+			ld d,0
+			ld hl,sString_Axes
+			add hl,de
+			ld bc,(bgcolor)
+			ld de,(fgcolor)
+			call TrashRAM_SwapOut
+			call VPutsColored
+			call TrashRAM_SwapIn
+RenderAxisLabels_Loop_Next:
+			pop hl
+		pop bc
+	inc hl
+	inc hl
+	djnz RenderAxisLabels_Loop
+	ret

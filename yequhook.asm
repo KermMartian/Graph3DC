@@ -151,14 +151,28 @@ yEquHook_Not2:
 	ld (penrow),a
 	call vputsapp
 	
-	ld a,(winBtm)
-	dec a
+	; Display explanation, saving and restoring curRow and curCol
 	ld hl,CurRow
-	ld (hl),a
+	ld e,(hl)
 	inc hl
-	ld (hl),0
-	ld hl,sYequExplain
-	call VPutsApp
+	ld d,(hl)
+	push hl
+		push de
+			ld (hl),0
+			dec hl
+			ld a,(winBtm)
+			dec a
+			ld (hl),a
+			push af
+				ld hl,sYequExplain
+				call PutsApp
+				pop af
+				ld (winBtm),a
+			pop de
+		pop hl
+	ld (hl),d
+	dec hl
+	ld (hl),e
 	
 	; Set max equations
 	ld a,(EQS + 7)

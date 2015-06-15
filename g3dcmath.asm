@@ -20,15 +20,18 @@ MinHLDE:
 	ret
 
 cphlde_fp:
-	ld a,h
-	xor d
-	rla
-	jr nc,cphlde_fp_go
-	ex de,hl
+	push hl
+		push de
+			ld a,h
+			xor d
+			rla
+			jr nc,cphlde_fp_go
+			ex de,hl
 cphlde_fp_go:
-	or a
-	sbc hl,de
-	add hl,de
+			or a
+			sbc hl,de
+			pop de
+		pop hl
 	ret
 
 ;Input: A = Multiplier, DE = Multiplicand, HL = 0, C = 0

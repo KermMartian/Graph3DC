@@ -44,16 +44,17 @@
 ; [X] Fix flashing trace cursor when no equations are enabled
 ; [X] Fix memory leak on context change out of Graph or Format mode
 ; [-] Fix bug in Y= menu when entering a menu or using Rcl. -> Unable to replicate
+; [X] Explain what's happening while computation is underway
+; [/] Add tip for equation entry in Y= menu
+; [ ] Fix status area app title in graph menu
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
-; [ ] Explain what's happening while computation is underway
-; [ ] Add tip for equation entry in Y= menu
-; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ; [ ] Test in splitscreen mode, including Format, Window, Zoom, Y=, Graph
+; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
 
 .echo "-----------------------\n"
@@ -133,10 +134,13 @@ temp3	.equ plotSScreen
 .var fp8.8, sub_min_x
 .var fp8.8, negsub_min_x
 .var fp8.8, sub_max_x
+.var fp8.8, sup_max_x
 .var fp8.8, sub_min_y
 .var fp8.8, negsub_min_y
 .var fp8.8, sub_max_y
+.var fp8.8, sup_max_y
 .var fp8.8, sub_max_z
+.var fp8.8, sup_max_z
 .var fp8.8, val_zero
 .var byte[9], deltaX_OS
 .var byte[9], deltaY_OS
@@ -146,6 +150,7 @@ temp3	.equ plotSScreen
 .var word, sx
 .var word, sy
 
+.var byte, labelmode
 .var byte, colormode
 .var word, bgcolor
 .var word, fgcolor				;Used for bounds and axis rendering
@@ -188,9 +193,9 @@ temp3	.equ plotSScreen
 .var word, pgrid_sx				;Pointer to variable data	MAX_XY_RES*MAX_XY_RES*2
 .var word, pgrid_sy				;Pointer to variable data	MAX_XY_RES*MAX_XY_RES*2
 .var word, pgrid_colors			;Pointer to variable data	MAX_EQS*MAX_XY_RES*MAX_XY_RES*2
-.var word, paxes_x				;Pointer to variable data	20*2
-.var word, paxes_y				;Pointer to variable data	20*2
-.var word, paxes_z				;Pointer to variable data	20*2
+.var word, paxes_x				;Pointer to variable data	AXES_BOUND_COORDS*2
+.var word, paxes_y				;Pointer to variable data	AXES_BOUND_COORDS*2
+.var word, paxes_z				;Pointer to variable data	AXES_BOUND_COORDS*2
 
 .varloc temp3, 768
 .var byte[2+(8*8*2)], traceCursorBack
@@ -204,7 +209,6 @@ temp3	.equ plotSScreen
 #define INT_TO_8P8	256
 #define MAX_COLOR_MODES 3
 #define MAX_AXIS_MODES 4
-#define AXES_BOUND_COORDS 20
 #define COLOR_GRAY $8410
 #define COLOR_WHITE $ffff
 #define COLOR_BLACK $0000
@@ -214,9 +218,16 @@ temp3	.equ plotSScreen
 #define PROGRESS_WIDTH 17
 
 #define DEFAULT_XY_RES MAX_XY_RES
+#define DEFAULT_XY_RES_HI MAX_XY_RES_HI
 #define DEFAULT_XY_MIN $F800
 #define DEFAULT_XY_MAX $0800
 
+#define AXES_BOUND_COORDS 23
+#define AXES_BOUND_PAIRS_AXES 9
+#define AXES_BOUND_PAIRS_BOUNDS 12
+#define AXES_BOUND_PAIRS_LABELS 3
+
+#define PXLMINY_WITHSTATUS 30
 #define TRACE_COORDS_START_Y 34
 #define TRACE_COORDS_START_X 1
 #define TRACE_EQ_END_X 290
@@ -249,7 +260,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_BOUNDSMODE 2				;1 byte
 #define SETTINGS_AVOFF_BGCOLOR	3				;2 bytes
 #define SETTINGS_AVOFF_COLOR	5				;1 byte
-#define SETTINGS_AVOFF_HIRES	6				;1 byte
+#define SETTINGS_AVOFF_HIRES	6				;1 byte			; !! OBSOLETE !! read MAXEQS for this
 #define SETTINGS_AVOFF_XDIM		7				;1 byte
 #define SETTINGS_AVOFF_YDIM		8				;1 byte
 #define SETTINGS_AVOFF_SCALEF	9				;2 bytes
@@ -288,9 +299,9 @@ grid_x			.equ	trash_ram_loc + 0
 grid_y			.equ	grid_x + (capacity_3d_el * 2)
 grid_z			.equ	grid_y + (capacity_3d_el * 2)
 axes_x			.equ 	grid_z + (capacity_3d_el * 2)
-axes_y			.equ	axes_x + (2*20)
-axes_z			.equ	axes_y + (2*20)
-grid_colors		.equ	axes_z + (2*20)
+axes_y			.equ	axes_x + (2*AXES_BOUND_COORDS)
+axes_z			.equ	axes_y + (2*AXES_BOUND_COORDS)
+grid_colors		.equ	axes_z + (2*AXES_BOUND_COORDS)
 grid_sx			.equ	grid_colors + (capacity_3d_el * 2)
 grid_sy			.equ	grid_sx + (capacity_2d_el * 2)
 axes_sx			.equ	grid_sy + (capacity_2d_el * 2)

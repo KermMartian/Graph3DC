@@ -82,18 +82,9 @@ LTS_CreateAV:
 	inc hl
 	ld (hl),a				; Offset 5:		Color mode = 0
 	inc hl
-#ifdef DEBUG_HIRES
-	ld (hl),1
-#else
-	ld (hl),0				; Offset 6:		High-res mode
-#endif
-	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_HIRES
+	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_COLOR
 	add hl,de
-#ifdef DEBUG_HIRES
-	ld (hl),MAX_EQS_HI
-#else
 	ld (hl),MAX_EQS
-#endif
 	
 	call ZoomStandard3D
 

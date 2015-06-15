@@ -1,138 +1,53 @@
-spriteup_black_palette:
-	.db $00,$00,$ff,$ff
-spriteup_black:
-	.dw spriteup_black_palette
-	.db 20,16
-	.db $00,$f0,$00
-	.db $01,$98,$00
-	.db $03,$0c,$00
-	.db $06,$66,$00
-	.db $0c,$f3,$00
-	.db $19,$f9,$80
-	.db $33,$fc,$c0
-	.db $67,$fe,$60
-	.db $cf,$ff,$30
-	.db $80,$00,$10
-	.db $80,$00,$10
-	.db $ff,$ff,$f0
-	.db $ff,$ff,$f0
-	.db $80,$00,$10
-	.db $80,$00,$10
-	.db $ff,$ff,$f0
-spriteup_white_palette:
-	.db $ff,$ff,$00,$00
-spriteup_white:
-	.dw spriteup_white_palette
-	.db 20,16
-	.db $00,$00,$00
-	.db $00,$60,$00
-	.db $00,$f0,$00
-	.db $01,$98,$00
-	.db $03,$0c,$00
-	.db $06,$06,$00
-	.db $0c,$03,$00
-	.db $18,$01,$80
-	.db $30,$00,$c0
-	.db $7f,$ff,$e0
-	.db $7f,$ff,$e0
-	.db $00,$00,$00
-	.db $00,$00,$00
-	.db $7f,$ff,$e0
-	.db $7f,$ff,$e0
-	.db $00,$00,$00
-switchaxes_palette:
-	.db $00,$20,$ff,$ff,$4a,$69,$9c,$f3
-switchaxes:
-	.dw switchaxes_palette
-	.db 16,16
-	.db $00,$00,$00,$00
-	.db $15,$55,$55,$54
-	.db $15,$55,$95,$54
-	.db $15,$56,$85,$54
-	.db $15,$5b,$b1,$54
-	.db $15,$55,$b5,$54
-	.db $15,$55,$b5,$54
-	.db $15,$55,$15,$54
-	.db $15,$55,$35,$54
-	.db $15,$57,$09,$54
-	.db $15,$72,$5c,$c4
-	.db $1b,$8d,$57,$04
-	.db $18,$d5,$54,$04
-	.db $1a,$b5,$55,$54
-	.db $15,$55,$55,$54
-	.db $00,$00,$00,$00
-switchback_palette:
-	.db $00,$00,$ff,$ff
-switchback:
-	.dw switchback_palette
-	.db 16,16
-	.db $00,$ff
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $7f,$01
-	.db $00,$ff
-changecolor_palette:
-	.db $00,$00,$ff,$ff,$10,$1f,$00,$ff,$02,$7f,$03,$ff,$05,$7f,$06,$ff
-	.db $07,$fe,$07,$f8,$07,$f2,$07,$ec,$07,$e6,$07,$e1,$06,$df,$27,$e0
-	.db $57,$e0,$87,$e0,$b7,$e0,$e7,$e0,$2f,$e0,$ff,$60,$ff,$40,$fd,$e0
-	.db $07,$e0,$fc,$60,$fa,$e0,$f9,$60,$f8,$00
-changecolor:
-	.dw changecolor_palette
-	.db 16,16
-	.db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-	.db 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
-	.db 0,1,2,3,4,5,6,7,8,9,10,11,12,13,1,0
-	.db 0,1,3,4,5,6,14,8,9,10,11,12,13,15,1,0
-	.db 0,1,4,5,6,7,8,9,10,11,12,13,15,16,1,0
-	.db 0,1,5,6,7,8,9,10,11,12,13,15,16,17,1,0
-	.db 0,1,6,7,8,9,10,11,12,13,15,16,17,18,1,0
-	.db 0,1,7,8,9,10,11,12,13,15,16,17,18,19,1,0
-	.db 0,1,8,9,10,11,12,13,20,16,17,18,19,21,1,0
-	.db 0,1,9,10,11,12,13,15,16,17,18,19,22,23,1,0
-	.db 0,1,10,11,12,24,15,16,17,18,19,22,23,25,1,0
-	.db 0,1,11,12,24,15,16,17,18,19,21,23,25,26,1,0
-	.db 0,1,12,13,15,16,17,18,19,22,23,25,26,27,1,0
-	.db 0,1,13,15,16,17,18,19,21,23,25,26,27,28,1,0
-	.db 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
-	.db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 AxesBoundsX:
 	.dw max_x, min_x, sub_max_x, sub_max_x
 	.dw val_zero, val_zero, sub_min_x, negsub_min_x
 	.dw val_zero, val_zero, val_zero, val_zero
 	.dw max_x, min_x, max_x, max_x
 	.dw min_x, max_x, min_x, min_x
+	.dw sup_max_x, val_zero, val_zero
 AxesBoundsY:
 	.dw val_zero, val_zero, sub_min_y, negsub_min_y
 	.dw max_y, min_y, sub_max_y, sub_max_y
 	.dw val_zero, val_zero, sub_min_y, negsub_min_y
 	.dw max_y, max_y, min_y, max_y
 	.dw min_y, min_y, max_y, min_y
+	.dw val_zero, sup_max_y, val_zero
 AxesBoundZ:
 	.dw val_zero, val_zero, val_zero, val_zero
 	.dw val_zero, val_zero, val_zero, val_zero
 	.dw val_max_z, val_min_z, sub_max_z, sub_max_z
 	.dw val_max_z, val_max_z, val_max_z, val_min_z
 	.dw val_min_z, val_min_z, val_min_z, val_max_z
+	.dw val_zero, val_zero, sup_max_z
 Offsets_Axes:
 	.db 0,1,0,2,0,3
 	.db 4,5,4,6,4,7
 	.db 8,9,8,10,8,11
+Offsets_Axes_End:
 Offsets_Bounds:
 	.db 12,13,12,14,12,15
 	.db 16,17,16,18,16,19
 	.db 14,17,15,17,13,18
 	.db 15,18,13,19,14,19
+Offsets_Bounds_End:
+Offsets_AxesMax:
+	.db 0,20,4,21,8,22				; Offset of max x-axis tip, max y-axis tip, max z-axis tip
+Offsets_AxesMax_End:
+sString_Axes:
+	.db " x",0,0," y",0,0," z",0,0	; *must* correspond to (Offsets_AxesMax >> 1)
+sString_Axes_End:
+
+; Sanity-checking on the values above
+.if (Offsets_Axes_End - Offsets_Axes) != (2*AXES_BOUND_PAIRS_AXES)
+.fail "Offsets_Axes contains wrong data, or AXES_BOUND_PAIRS_AXES is outdated"
+.endif
+.if (Offsets_Bounds_End - Offsets_Bounds) != (2*AXES_BOUND_PAIRS_BOUNDS)
+.fail "Offsets_Bounds contains wrong data, or AXES_BOUND_PAIRS_BOUNDS is outdated"
+.endif
+.if (Offsets_AxesMax_End - Offsets_AxesMax) != 2*AXES_BOUND_PAIRS_LABELS
+.fail "Offsets_AxesMax contains wrong data, or AXES_BOUND_PAIRS_LABELS is outdated"
+.endif
+
 
 windowTable:
       .db   $FF
@@ -346,5 +261,4 @@ sBuildNum:
 sYequExplain:
 	.db "Use X and Y as indep vars",0
 sGraphExplain:
-	.db "Precomputing each Z value ",
-	.db "at each X and Y coordinate",0
+	.db "Precomputing X,Y,Z values",0

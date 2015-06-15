@@ -1119,22 +1119,16 @@ SetupStatusText:
 	ld bc,$52aa
 	ret
 
-GetEnabledEq:
-	ld c,tZ1
-	ld b,a
-	ld hl,eq_en_cache
-GetEnabledEqLoop:
-	ld a,(hl)
-	inc hl
-	inc c
-	or a
-	jr z,GetEnabledEqLoop
-	dec c
-	ld a,b
-	or a
-	ld a,c
-	ret z
-	dec b
-	inc c
-	jr GetEnabledEqLoop
-
+setWindow_OS:
+	bcall(_ResetWinTop)
+	ld a,10
+	ld (winBtm),a
+	ret
+	
+setWindow_Full:
+	xor a
+	ld (winTop),a
+	ld a,10
+	ld (winBtm),a
+	ret
+	

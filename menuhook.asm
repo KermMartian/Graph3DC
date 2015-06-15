@@ -89,12 +89,18 @@ ZoomHook_RetZSet:
 	ret
 
 ZoomStandard3D:
+	ld a,SETTINGS_AVOFF_MAXEQS
+	call LTS_GetByte
+	ld b,DEFAULT_XY_RES
+	cp MAX_EQS
+	jr z,ZoomStandard3D_SetDim
+	ld b,DEFAULT_XY_RES_HI
+ZoomStandard3D_SetDim:
 	ld a,SETTINGS_AVOFF_XDIM
 	call LTS_GetPtr
-	ld a,DEFAULT_XY_RES
-	ld (hl),a				; Offset 5:		DimX = maximum possible
+	ld (hl),b				; Offset 5:		DimX = maximum possible
 	inc hl
-	ld (hl),a				; Offset 6:		DimY = maximum possible
+	ld (hl),b				; Offset 6:		DimY = maximum possible
 	inc hl
 	ld de,1.00*INT_TO_8P8
 	ld (hl),e
