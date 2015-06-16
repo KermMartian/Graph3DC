@@ -152,6 +152,7 @@ yEquHook_Not2:
 	call vputsapp
 	
 	; Display explanation, saving and restoring curRow and curCol
+	call setWindow_OS
 	ld hl,CurRow
 	ld e,(hl)
 	inc hl
@@ -322,6 +323,7 @@ cxMain_PlotLine_NotLeft:
 cxMain_PlotLine_RestoreApp:
 	call cxPutAway_PlotLine
 	call RestoreMonVectors
+	call setWindow_OS					; If we're switching from 3D to 2D mode
 	bjump(_maybe_MonRestart)
 	;bjump(_Mon)
 

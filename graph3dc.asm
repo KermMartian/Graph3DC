@@ -18,7 +18,6 @@
 ; [-] Fix spectrum colors coming out too dark -> Marked WONTFIX for now.
 ; [-] Is graph getting drawn X-flipped? Y-flipped? -> Looks good.
 ; [X] Try to improve precision when doing mapping to screen coords.
-; ------v----New items----v------
 ; [X] Add ZoomFact to Window menu
 ; [-] Remove step_x / step_y? -> Still need for fixed-point X and Y computation
 ; [X] Try to optimize computation as much as possible: Pre-compute X and Y and X/Yinc, eg? -> Saved ~14% time for 289 points
@@ -45,11 +44,12 @@
 ; [X] Fix memory leak on context change out of Graph or Format mode
 ; [-] Fix bug in Y= menu when entering a menu or using Rcl. -> Unable to replicate
 ; [X] Explain what's happening while computation is underway
+; ------v----New items----v------
+; [X] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [/] Add tip for equation entry in Y= menu
 ; [ ] Fix status area app title in graph menu
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
@@ -232,7 +232,7 @@ temp3	.equ plotSScreen
 #define TRACE_COORDS_START_X 1
 #define TRACE_EQ_END_X 290
 #define TRACE_COORDS_WIDTH 85
-#define TRACE_COORDS_HEIGHT 36
+#define TRACE_COORDS_HEIGHT 38
 
 #define AXIS_MODE_NONE 0				; Neither axes nor bounds
 #define AXIS_MODE_A 1					; Axes only
@@ -664,6 +664,7 @@ appChangeHook:
 				push bc
 					call LTS_CacheAV
 					call CleanTempHooks					; Clean up Yequ, Zoom, Window hooks, if they're ours
+					call setWindow_OS					; In some places we modify the window
 
 					ld a,SETTINGS_AVOFF_MODE
 					call LTS_GetByte
