@@ -1131,4 +1131,3 @@ setWindow_Full:
 	ld a,10
 	ld (winBtm),a
 	ret
-	

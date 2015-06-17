@@ -46,7 +46,9 @@
 ; [X] Explain what's happening while computation is underway
 ; ------v----New items----v------
 ; [X] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
-; [/] Add tip for equation entry in Y= menu
+; [X] Add tip for equation entry in Y= menu
+; [ ] Fix top line of Y=/Z= menu in splitscreen mode
+; [ ] Resolve inconsistencies with how enabled Z= equations are displayed
 ; [ ] Fix status area app title in graph menu
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow

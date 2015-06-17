@@ -36,9 +36,10 @@ YEquHook_Partial_PlotLineLoop_AddXPos:
 			ld e,a
 			ld d,0
 			ld (pencol),de
-			pop af
-		ld a,36
+			pop bc
+		call YEquHook_SetPenRow	; destroys a and f		
 		ld (penrow),a
+		ld a,b					; restore selected item
 		ld de,COLOR_BLACK
 		ld bc,COLOR_WHITE
 		push de
@@ -147,8 +148,7 @@ yEquHook_Not2:
 	ld hl,PlotLineText2
 	ld de,12
 	ld (pencol),de
-	ld a,36
-	ld (penrow),a
+	call YEquHook_SetPenRow	; destroys a and f		
 	call vputsapp
 	
 	; Display explanation, saving and restoring curRow and curCol
@@ -271,9 +271,14 @@ yEquHook_Allow:
 ClearPlotLine:
 	ld hl,(CurRow)
 	push hl
-		xor a
-		ld (CurCol),a
-		ld (CurRow),a
+		ld hl,curCol
+		
+		ld hl,curRow
+		ld a,(winTop)
+		dec a
+		ld (hl),a				; curRow
+		inc hl
+		ld (hl),0				; curCol
 		ld de,COLOR_WHITE
 		ld (textFGcolor),de
 		ld (textBGcolor),de
@@ -449,8 +454,7 @@ yEquCursorHook_DisplayBlock_AddXLoop:
 	ld e,a
 	ld d,0
 	ld (pencol),de
-	ld a,36
-	ld (penrow),a
+	call YEquHook_SetPenRow	; destroys a and f		
 	call vputsapp							; hl was already set earlier in this routine
 yEquCursorHook_NotDispUnderCursor:
 	cp a
@@ -477,6 +481,16 @@ cxPutAway_PlotLine:
 SimpleRet:
 	ret
 	
+;--------------------------------------------
+YEquHook_SetPenRow:
+	ld a,$24
+	bit grfSplit,(iy+sgrFlags)
+	jr z,YEquHook_SetPenRow_Set
+	ld a,$9e
+YEquHook_SetPenRow_Set:
+	ld (penrow),a
+	ret
+
 ;--------------------------------------------
 SaveMonVectors:
 	ld a,SETTINGS_MONVECBACK
