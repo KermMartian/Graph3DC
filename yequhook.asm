@@ -10,12 +10,12 @@ YEquHook:
 					call LTS_CacheAV		; Our AV is cached for the entire hook duration now
 					ld a,SETTINGS_AVOFF_MODE
 					call LTS_GetByte
+					or a
+					jp nz,YEquHook_Full
+YEquHook_Partial:
 					pop de
 				pop hl
 			pop bc
-		or a
-		jp nz,YEquHook_Full
-YEquHook_Partial:
 		pop af
 	cp 3
 	jr nz,YEquHook_Partial_Not3
@@ -108,13 +108,15 @@ YEquHook_SetZRet:
 	ret
 
 YEquHook_Full:
-		call YEquHook_MapEQStoZ				; remap back to Z1...Z6, because the pesky scrolling is done
-		ld a,SETTINGS_AVOFF_MAXEQS
-		call LTS_GetByte
-		add a,tZ1
-		and $0f								; was ld a,$0f & (tZ1 + MAX_EQS)
-		ld (EQS + 6),a
-
+						call YEquHook_MapEQStoZ				; remap back to Z1...Z6, because the pesky scrolling is done
+						ld a,SETTINGS_AVOFF_MAXEQS
+						call LTS_GetByte
+						add a,tZ1
+						and $0f								; was ld a,$0f & (tZ1 + MAX_EQS)
+						ld (EQS + 6),a
+					pop de
+				pop hl
+			pop bc
 		pop af
 	or a
 	jr nz,yEquHook_Not0
@@ -263,9 +265,6 @@ yEquHook_Not6:
 		add a,$81-tZ1
 		bcall(_PutC)
 		pop hl
-	cp a
-	ret
-
 yEquHook_Not8:
 yEquHook_Allow:
 	cp a

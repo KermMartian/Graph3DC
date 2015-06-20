@@ -49,9 +49,9 @@
 ; [X] Add tip for equation entry in Y= menu
 ; [X] Fix top line of Y=/Z= menu in splitscreen mode
 ; [X] Implement cleaner way to avoid going into style icons
-; [ ] Resolve inconsistencies with how enabled Z= equations are displayed
+; [X] Fix freeze when scrolling up after multiline Z= equation entry (changeset 38)
+; [ ] Resolve inconsistencies with how enabled Z= equations are displayed (changeset 39: hl was destroyed in YEquHook_Full)
 ; [ ] Fix explanation display when Z= scrolls
-; [ ] Fix freeze when scrolling up after multiline Z= equation entry
 ; [ ] Fix status area app title in graph menu
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
@@ -373,7 +373,7 @@ mZoom3D			.equ	94h
 fastSpeed		.equ	5
 speedFlags		.equ	24h
 _GetBytePaged	.equ	_LoadBIndPaged
-tZ1				.equ	tR6+1 				;tY0+1
+tZ1				.equ	tY0+1
 extraIndicFlags	.equ	$3E
 saIndicForce	.equ	2
 .list
