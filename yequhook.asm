@@ -108,6 +108,7 @@ YEquHook_SetZRet:
 	ret
 
 YEquHook_Full:
+		call YEquHook_MapEQStoZ				; remap back to Z1...Z6, because the pesky scrolling is done
 		ld a,SETTINGS_AVOFF_MAXEQS
 		call LTS_GetByte
 		add a,tZ1
@@ -129,7 +130,7 @@ YEquHook_Full:
 yEquHook_Not0:
 	dec a
 	jr nz,yEquHook_Not1
-	or a					; Reset z flag: not allowed to go to style icons (1 | 1 => z reset)
+	or $ff					; Reset z flag: not allowed to go to style icons
 	ret
 
 yEquHook_Not1:
@@ -152,7 +153,7 @@ yEquHook_Not2:
 	call vputsapp
 	
 	; Display explanation, saving and restoring curRow and curCol
-	call setWindow_OS
+	call setWindow_OS_Bottom		; Do NOT change winTop!
 	ld hl,CurRow
 	ld e,(hl)
 	inc hl
@@ -238,13 +239,16 @@ yEquHook_Not5:
 	bcall(_CloseEditEqu)
 	jp YEquHook_SpecialPlotLine_Setup		; Go into Plot1...3 line
 yEquHook_5_NotUp:
-	cp kLeft
-	jr nz,yEquHook_Allow
-	ld a,(curcol)				; Are we to the right of the =?
-	cp 4
-	jr nc,yEquHook_Allow
-	or $ff						; Don't let us go into the style area
-	ret
+	; Important note: on the CSE, possibly others, the OS rampages over
+	; an area starting at $8b0a when equations grow to cover more lines,
+	; an area that stores the starting pixel coordinates of each equation.
+	; If we don't perform this mapping, then the looped coordinate adjustment
+	; the OS performs to correct coordinates below an equation that grew (or
+	; shrank) will rampage over all memory (around $6a90 on page $06 in the OS).
+	; I put code at the beginning of the full hook that undoes this after a key
+	; is handled.
+	call YEquHook_MapEQStoY
+	jr yEquHook_Allow
 
 yEquHook_Not6:
 	sub 2
@@ -489,6 +493,31 @@ YEquHook_SetPenRow:
 	ld a,$9e
 YEquHook_SetPenRow_Set:
 	ld (penrow),a
+	ret
+
+;--------------------------------------------
+YEquHook_MapEQStoY:
+	ld a,(EQS + 6)			; Maximum
+	and $0f
+	cp (tZ1 & $0f) + 0
+	ret c					; Already adjusted
+	sub tZ1-tY1
+	ld (EQS + 6),a
+	ld a,(EQS + 7)			; Current
+	sub tZ1-tY1
+	ld (EQS + 7),a
+	ret
+
+YEquHook_MapEQStoZ:
+	ld a,(EQS + 6)			; Maximum
+	and $0f
+	cp (tZ1 & $0f) + 0
+	ret nc					; Already adjusted
+	add a,tZ1-tY1
+	ld (EQS + 6),a
+	ld a,(EQS + 7)			; Current
+	add a,tZ1-tY1
+	ld (EQS + 7),a
 	ret
 
 ;--------------------------------------------

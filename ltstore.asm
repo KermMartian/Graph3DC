@@ -81,7 +81,6 @@ LTS_CreateAV:
 	ld (hl),$ff				; Offset 3:		BGColor = $0000
 	inc hl
 	ld (hl),a				; Offset 5:		Color mode = 0
-	inc hl
 	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_COLOR
 	add hl,de
 	ld (hl),MAX_EQS

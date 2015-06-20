@@ -47,15 +47,18 @@
 ; ------v----New items----v------
 ; [X] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [X] Add tip for equation entry in Y= menu
-; [ ] Fix top line of Y=/Z= menu in splitscreen mode
+; [X] Fix top line of Y=/Z= menu in splitscreen mode
+; [X] Implement cleaner way to avoid going into style icons
 ; [ ] Resolve inconsistencies with how enabled Z= equations are displayed
+; [ ] Fix explanation display when Z= scrolls
+; [ ] Fix freeze when scrolling up after multiline Z= equation entry
 ; [ ] Fix status area app title in graph menu
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
-; [ ] Test in splitscreen mode, including Format, Window, Zoom, Y=, Graph
+; [ ] Test in splitscreen mode, including Format, Window, Zoom, -Y-=-, Graph
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
 
@@ -370,7 +373,7 @@ mZoom3D			.equ	94h
 fastSpeed		.equ	5
 speedFlags		.equ	24h
 _GetBytePaged	.equ	_LoadBIndPaged
-tZ1				.equ	tY0+1
+tZ1				.equ	tR6+1 				;tY0+1
 extraIndicFlags	.equ	$3E
 saIndicForce	.equ	2
 .list

@@ -1121,6 +1121,7 @@ SetupStatusText:
 
 setWindow_OS:
 	bcall(_ResetWinTop)
+setWindow_OS_Bottom:
 	ld a,10
 	ld (winBtm),a
 	ret
