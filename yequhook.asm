@@ -108,10 +108,10 @@ YEquHook_SetZRet:
 	ret
 
 YEquHook_Full:
-						call YEquHook_MapEQStoZ				; remap back to Z1...Z6, because the pesky scrolling is done
+						call SwapZYFuncs_In
 						ld a,SETTINGS_AVOFF_MAXEQS
 						call LTS_GetByte
-						add a,tZ1
+						add a,tY1
 						and $0f								; was ld a,$0f & (tZ1 + MAX_EQS)
 						ld (EQS + 6),a
 					pop de
@@ -177,15 +177,6 @@ yEquHook_Not2:
 	ld (hl),d
 	dec hl
 	ld (hl),e
-	
-	; Set max equations
-	ld a,(EQS + 7)
-	cp tZ1
-	jr nc,yEquHook_3_NoEqSetup
-	ld a,tZ1
-	ld (EQS + 7),a
-	ld (OP1 + 2),a
-yEquHook_3_NoEqSetup:
 
 	cp $ff
 	ret
@@ -197,30 +188,7 @@ yEquHook_Not3:
 yEquHook_Not4:
 	dec a
 	jr nz,yEquHook_Not5
-#ifdef false
-	ld hl,BaseZVarName
-	rst 20h
-	ld a,(EQS + 7)							; Currently-edited equation
-	ld (OP1 + 2),a
-	add a,SETTINGS_ZEQUENABLED-tZ1
-	call LTS_GetPtr
-	push hl
-		rst 10h
-		pop hl
-	ret c
-	ex de,hl
-	ld a,(hl)
-	inc hl
-	or (hl)
-	ld a,0
-	ex de,hl
-	jr z,yEquHook_3_Set
-	ld a,(hl)
-	xor $ff
-yEquHook_3_Set:
-	ld (hl),a
-	ld c,a
-#endif
+
 	cp a									; -D-o-n-'-t- do the toggle
 	ret
 
@@ -231,7 +199,7 @@ yEquHook_Not5:
 	cp kUp
 	jr nz,yEquHook_5_NotUp
 	ld a,(EQS + 7)
-	cp tZ1
+	cp tY1
 	jr nz,yEquHook_Allow
 	ld hl,(editCursor)
 	ld de,(editTop)
@@ -249,7 +217,7 @@ yEquHook_5_NotUp:
 	; shrank) will rampage over all memory (around $6a90 on page $06 in the OS).
 	; I put code at the beginning of the full hook that undoes this after a key
 	; is handled.
-	call YEquHook_MapEQStoY
+	;call YEquHook_MapEQStoY
 	jr yEquHook_Allow
 
 yEquHook_Not6:
@@ -258,12 +226,12 @@ yEquHook_Not6:
 
 	push hl
 		ld hl,CurCol
-		ld (hl),1
-		ld a,'Z'
-		bcall(_PutC)
-		ld a,(EQS + 7)
-		add a,$81-tZ1
-		bcall(_PutC)
+		push hl
+			ld (hl),1
+			ld a,'Z'
+			bcall(_PutC)
+			pop hl
+		inc (hl)
 		pop hl
 yEquHook_Not8:
 yEquHook_Allow:
@@ -379,6 +347,10 @@ cxMain_PlotLine_3DMode:
 		call LTS_GetPtr
 		pop af
 	ld (hl),a
+	push af
+		call nz,SwapZYFuncs_In
+	pop af
+	call z,SwapZYFuncs_Out
 	call SetFunctionMode
 	jr cxMain_PlotLine_RestoreApp
 cxMain_PlotLine_NotEnter:
@@ -492,31 +464,6 @@ YEquHook_SetPenRow:
 	ld a,$9e
 YEquHook_SetPenRow_Set:
 	ld (penrow),a
-	ret
-
-;--------------------------------------------
-YEquHook_MapEQStoY:
-	ld a,(EQS + 6)			; Maximum
-	and $0f
-	cp (tZ1 & $0f) + 0
-	ret c					; Already adjusted
-	sub tZ1-tY1
-	ld (EQS + 6),a
-	ld a,(EQS + 7)			; Current
-	sub tZ1-tY1
-	ld (EQS + 7),a
-	ret
-
-YEquHook_MapEQStoZ:
-	ld a,(EQS + 6)			; Maximum
-	and $0f
-	cp (tZ1 & $0f) + 0
-	ret nc					; Already adjusted
-	add a,tZ1-tY1
-	ld (EQS + 6),a
-	ld a,(EQS + 7)			; Current
-	add a,tZ1-tY1
-	ld (EQS + 7),a
 	ret
 
 ;--------------------------------------------

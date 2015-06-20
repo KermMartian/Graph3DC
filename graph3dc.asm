@@ -265,7 +265,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_BOUNDSMODE 2				;1 byte
 #define SETTINGS_AVOFF_BGCOLOR	3				;2 bytes
 #define SETTINGS_AVOFF_COLOR	5				;1 byte
-#define SETTINGS_AVOFF_HIRES	6				;1 byte			; !! OBSOLETE !! read MAXEQS for this
+#define SETTINGS_AVOFF_EQSWAPPED	6			;1 byte  - Used to swap Y<>Z equations
 #define SETTINGS_AVOFF_XDIM		7				;1 byte
 #define SETTINGS_AVOFF_YDIM		8				;1 byte
 #define SETTINGS_AVOFF_SCALEF	9				;2 bytes
@@ -669,6 +669,7 @@ appChangeHook:
 				push bc
 					call LTS_CacheAV
 					call CleanTempHooks					; Clean up Yequ, Zoom, Window hooks, if they're ours
+					call SwapZYFuncs_Out				; MAke sure all the equations are properly sorted
 					call setWindow_OS					; In some places we modify the window
 
 					ld a,SETTINGS_AVOFF_MODE
@@ -961,6 +962,7 @@ HookChainer_Continue:
 #include "tracefuncs.asm"
 #include "formathook.asm"
 #include "multimenu.asm"
+#include "funcfuncs.asm"
 #include "bigicon.inc"
 #include "data.inc"
 

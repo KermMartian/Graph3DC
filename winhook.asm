@@ -147,11 +147,11 @@ windowHook_SaveSimpleByte:
 		jr z,windowHook_SaveSimpleByte_Cancel	; value <= 1
 		jr c,windowHook_SaveSimpleByte_Cancel
 		ld b,MAX_XY_RES + 1
-		ld a,SETTINGS_AVOFF_HIRES
+		ld a,SETTINGS_AVOFF_MAXEQS
 		call LTS_GetByte
-		or a
-		jr z,windowHook_SaveSimpleByte_HaveMaxVal
-		ld b,MAX_XY_RES_HI + 1
+		cp MAX_EQS
+		jr z,windowHook_SaveSimpleByte_HaveMaxVal	; Normal res
+		ld b,MAX_XY_RES_HI + 1						; Hi res
 windowHook_SaveSimpleByte_HaveMaxVal:
 		ld a,b
 		bcall(_SetXXOP2)
