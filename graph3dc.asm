@@ -50,12 +50,15 @@
 ; [X] Fix top line of Y=/Z= menu in splitscreen mode
 ; [X] Implement cleaner way to avoid going into style icons
 ; [X] Fix freeze when scrolling up after multiline Z= equation entry (changeset 38)
-; [ ] Resolve inconsistencies with how enabled Z= equations are displayed (changeset 39: hl was destroyed in YEquHook_Full)
+; [X] Resolve inconsistencies with how enabled Z= equations are displayed (changeset 39: hl was destroyed in YEquHook_Full)
+; [X] Fix bug when Z= equation entry expands to second line -> related to blocking style editing? -> ended up being very complex.
+;     Final solution is to perform equation-swapping between Y= and Z= equations and to just use the Y= menu in its normal function mode.
 ; [ ] Fix explanation display when Z= scrolls
-; [ ] Fix status area app title in graph menu
+; [ ] Try to fix Window menu title in scrolling splitscreen mode
+; [ ] Fix status area app title in graph menu [not replicable?]
+; [ ] Test interactions with programs
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Fix bug when Z= equation entry expands to second line -> related to blocking style editing?
 ; [ ] Deal with split-screen flag.
 ; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ; [ ] Test in splitscreen mode, including Format, Window, Zoom, -Y-=-, Graph

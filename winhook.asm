@@ -48,6 +48,8 @@ windowHook_Not3:
 	call DisplayAppTitle
 	ld hl,winMenu_sWindow
 	call PutsApp
+	ld hl,winTop
+	inc (hl)				; Make the title stay when things scroll
 	or 1
 	ret
 windowHook_Not4:
