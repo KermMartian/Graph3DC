@@ -98,7 +98,7 @@ Graph_Clear_Screen:
 	out	($10),a
 	out	($10),a
 
-	ld hl,240
+	call Graph_GetPxlBottom				; to hl
 	ld de,(PxlMinY)
 	or a
 	sbc hl,de
@@ -177,6 +177,7 @@ Graph_Recolor:
 	ld (gamma),hl
 
 	; Figure out which equations are enabled
+Graph_Recolor_SetupProgress:
 #ifdef DEBUG_GRAPH
 	ld a,1
 	ld (counteqs),a
@@ -192,8 +193,7 @@ Graph_Recolor:
 	xor a
 	ld (completeXiters),a
 
-	ld a,(winBtm)				; winBtm - 2 -> curRow, 0 -> curCol
-	dec a
+	call Graph_GetWinBottom
 	dec a
 	ld l,a
 	ld h,0
@@ -214,9 +214,7 @@ Graph_Recolor:
 
 			pop de
 		pop bc
-	ld a,(winTop)
-	ld l,a
-	ld h,0
+	ld hl,0
 	ld (curRow),hl
 	ld hl,sGraphExplain
 	call PutsColored
@@ -319,8 +317,7 @@ Graph_Compute_EQ:
 		ld de,(bgcolor)
 		push de
 			; Draw the subscripted number for this equation
-			ld a,(winBtm)
-			dec a
+			call Graph_GetWinBottom
 			ld l,a
 			ld h,1
 			ld (CurRow),hl
@@ -503,8 +500,7 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			bcall(_StoY)
 
 			; Display some progress for this equation
-			ld a,(winBtm)
-			dec a
+			call Graph_GetWinBottom
 			ld l,a
 			ld h,25-PROGRESS_WIDTH
 			ld (CurRow),hl
@@ -530,8 +526,7 @@ Graph_Compute_EQ_SetProgressLoop:
 Graph_Compute_EQ_SetProgressLoop_Done:
 			
 			; Display some progress for overall equations
-			ld a,(winBtm)
-			dec a
+			call Graph_GetWinBottom
 			dec a
 			ld l,a
 			ld h,25-PROGRESS_WIDTH
@@ -1949,7 +1944,12 @@ RenderAxisLabels_Loop:
 			ld de,PXLMINY_WITHSTATUS
 			call cphlde
 			jr c,RenderAxisLabels_Loop_Next			; y coordinate is offscreen top
-			ld de,240-12
+			push hl
+				call Graph_GetPxlBottom
+				ld de,-12
+				add hl,de
+				pop de
+			ex de,hl
 			call cphlde
 			jr nc,RenderAxisLabels_Loop_Next		; y coordinate is offscreen bottom
 			ld a,l
@@ -1970,7 +1970,8 @@ RenderAxisLabels_Loop_Next:
 		pop bc
 	inc hl
 	inc hl
-	djnz RenderAxisLabels_Loop
+	dec b
+	jp nz,RenderAxisLabels_Loop
 	ret
 	
 ResetGraphFGColor:
@@ -1978,4 +1979,19 @@ ResetGraphFGColor:
 	call negate_hl
 	dec hl						;This makes negate_hl equivalent to cpl hl
 	ld (fgcolor),hl
+	ret
+
+Graph_GetWinBottom:
+	ld a,(winBtm)				; winBtm - 2 -> curRow, 0 -> curCol
+	dec a
+	bit grfSplit,(iy+sgrFlags)
+	ret z
+	ld a,5
+	ret
+
+Graph_GetPxlBottom:				; to hl
+	ld hl,240
+	bit grfSplit,(iy+sgrFlags)
+	ret z
+	ld hl,154
 	ret

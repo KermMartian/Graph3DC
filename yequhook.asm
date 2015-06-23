@@ -177,17 +177,6 @@ yEquHook_Not5:
 	ld a,b
 	; Check for keys that require re-drawing the explanation line
 	cp kUp
-	jr z,yEquHook_Keys_RedrawExplanation
-	cp kDown
-	jr z,yEquHook_Keys_RedrawExplanation
-	cp kEnter
-	jr nz,yEquHook_Keys_NoRedraw
-yEquHook_Keys_RedrawExplanation:
-	push af
-		call Yequ_DisplayExplanation
-		pop af
-yEquHook_Keys_NoRedraw:
-	cp kUp
 	jr nz,yEquHook_5_NotUp
 	ld a,(EQS + 7)
 	cp tY1
@@ -231,28 +220,14 @@ yEquHook_Allow:
 
 ;--------------------------------------------
 Yequ_DisplayExplanation:
-	call setWindow_OS_Bottom		; Do NOT change winTop!
-	ld hl,CurRow
-	ld e,(hl)
-	inc hl
-	ld d,(hl)
-	push hl
-		push de
-			ld (hl),0
-			dec hl
-			ld a,(winBtm)
-			dec a
-			ld (hl),a
-			push af
-				ld hl,sYequExplain
-				call PutsApp
-				pop af
-				ld (winBtm),a
-			pop de
-		pop hl
-	ld (hl),d
-	dec hl
-	ld (hl),e
+	call YEquHook_SetPenRow
+	ld hl,YEQU_EXPLAIN_START_X
+	ld (pencol),hl
+	ld hl,COLOR_GRAY
+	ld (drawFGColor),hl
+	ld hl,sYequExplain
+	call vPutsApp
+	call ResetColors
 	ret
 ;--------------------------------------------
 ClearPlotLine:

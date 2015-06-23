@@ -279,17 +279,18 @@ VPutsTokenizedString_OneByte:
 			ex de,hl
 			or a
 			sbc hl,de
-			ld de,10
+			ld de,16
 			call cphlde
 			pop hl
 		pop de
 	jr nc,VPutsTokenizedString
 	ld a,b
 	or a
-	jr nz,VPutsTokenizedString
+	jr nz,VPutsTokenizedString_Finish
 	ld a,c
 	dec a
-	jr nz,VPutsTokenizedString
+	jr z,VPutsTokenizedString
+VPutsTokenizedString_Finish:
 	ld hl,OP2
 	ld (hl),$BB			;$BB $DB is an ellipsis
 	inc hl

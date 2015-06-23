@@ -1,3 +1,44 @@
+SplitscreenGraphHook:
+	.db $83
+	cp a									;set zero flag
+	push af
+		push bc
+			push hl
+				call LTS_CacheAV
+				ld a,SETTINGS_AVOFF_MODE
+				call LTS_GetByte
+				pop hl
+			pop bc
+		or a
+		jr z,SplitscreenGraphHook_Chain
+		bit grfSplit,(iy+sgrFlags)			; We're enabled, but splitscreen mode is off. Why
+		jr z,SplitscreenGraphHook_Chain		; would this fire? Eh, let's be safe.
+		pop af
+	or a
+	jr z,SplitscreenGraphHook_Redraw
+	cp a
+	ret
+
+SplitscreenGraphHook_Redraw:
+	call SetSpeedFast
+	call Graph_Setup
+	call Graph_Clear_Screen			; calls DisplayNormal
+	call Graph_Recompute
+	call Graph_Rerotate
+
+	call DisplayNormal
+	call Graph_Redraw
+	call DisplayOrg
+	res graphDraw,(iy+graphFlags)
+	or $ff
+	ret
+
+SplitscreenGraphHook_Chain:
+		pop af
+	push hl
+		ld hl,SETTINGS_HOOKBACK_REGR
+		jp HookChainer						; Let the other hook decide
+
 cxInit_3DGraph:
 	set appMenus,(iy+appFlags)				; Let menus be opened.
 	call LTS_CacheAV

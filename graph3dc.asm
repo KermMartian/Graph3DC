@@ -53,15 +53,18 @@
 ; [X] Resolve inconsistencies with how enabled Z= equations are displayed (changeset 39: hl was destroyed in YEquHook_Full)
 ; [X] Fix bug when Z= equation entry expands to second line -> related to blocking style editing? -> ended up being very complex.
 ;     Final solution is to perform equation-swapping between Y= and Z= equations and to just use the Y= menu in its normal function mode.
-; [ ] Fix explanation display when Z= scrolls
-; [ ] Try to fix Window menu title in scrolling splitscreen mode
-; [ ] Fix status area app title in graph menu [not replicable?]
-; [ ] Test interactions with programs
+; [X] Try to fix Window menu title in scrolling splitscreen mode
+; [X] Fix ellipses with long equations in graph status area -> simple logic error
+; [-] Fix EOL erasing not occuring properly in Y= menu when screen scrolls -> Cannot replicate
+; [-] Fix status area app title in graph menu [not replicable?]
+; [X] Fix explanation display when Z= scrolls -> Moved to top of window
+; [X] Test interactions with programs -> Allows programs to use Y= mode even when Z= mode is enabled for the user
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Deal with split-screen flag.
-; [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
-; [ ] Test in splitscreen mode, including Format, Window, Zoom, -Y-=-, Graph
+;     [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
+;     [ ] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, Graph
+; [ ] Test graph-table mode and adjust accordingly. Implement table mode?
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
 
@@ -236,6 +239,7 @@ temp3	.equ plotSScreen
 #define AXES_BOUND_PAIRS_LABELS 3
 
 #define PXLMINY_WITHSTATUS 30
+#define YEQU_EXPLAIN_START_X 100
 #define TRACE_COORDS_START_Y 34
 #define TRACE_COORDS_START_X 1
 #define TRACE_EQ_END_X 290
@@ -283,7 +287,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_MONVECBACK		33				;13 bytes - Monitor vector backup
 #define SETTINGS_HOOKBACK_APP	46				;4 bytes  - AppChangeHook backup
 #define SETTINGS_HOOKBACK_MENU	50				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_GRPH	54				;4 bytes  - GraphHook backup
+#define SETTINGS_HOOKBACK_REGR	54				;4 bytes  - GraphHook backup
 #define SETTINGS_HOOKBACK_KEY	58				;4 bytes  - KeyHook backup
 #define SETTINGS_HOOKBACK_REDISP 62				;4 bytes  - cxRedispHook backup
 #define SETTINGS_HOOKBACK_XXXX	66				;4 bytes  - NOT USED backup
@@ -638,6 +642,12 @@ ProgramStart_Uninstall:
 	ld hl,flags + hookflags4
 	call DisableHook
 
+	; Restore the reGraphHook area
+	ld de,GraphHookPtr+2
+	ld bc,($ff^(1 << reGraphHookActive))*256 + SETTINGS_HOOKBACK_REGR
+	ld hl,flags + hookflags3
+	call DisableHook
+
 	jr ProgramStart_Quit
 
 ProgramStart_Install:
@@ -653,6 +663,14 @@ ProgramStart_Install:
 	call GetCurrentPage
 	ld hl,MenuHook
 	bcall(_SetMenuHook)
+
+	; Set up new graph hook. We use a custom App
+	; context for the actual graph context, but the
+	; OS uses the graphhook in half-res mode to draw
+	; a graph, and we want to hook it.
+	call GetCurrentPage
+	ld hl,SplitscreenGraphHook
+	bcall(_SetRegraphHook)
 
 ProgramStart_Quit:
 	; Cleanup/quit
@@ -678,6 +696,10 @@ appChangeHook:
 					ld a,SETTINGS_AVOFF_MODE
 					call LTS_GetByte
 					ld d,a
+					or a
+					jr z,appChangeHook_NoSplitOverride
+					set grfSChanged,(iy+sgrFlags)
+appChangeHook_NoSplitOverride:
 					pop bc
 				; b is current app, c is new app, a and d are mode
 
@@ -833,21 +855,15 @@ CleanTempHooks:
 	call DisableHook
 
 	;GraphHook
-	ld de,GraphHookPtr+2
-	ld bc,($ff^(1 << GraphHookActive))*256 + SETTINGS_HOOKBACK_GRPH
-	ld hl,flags + hookflags3
-	call DisableHook
+	;ld de,GraphHookPtr+2
+	;ld bc,($ff^(1 << GraphHookActive))*256 + SETTINGS_HOOKBACK_GRPH
+	;ld hl,flags + hookflags3
+	;call DisableHook
 	
 	;RawKeyHook
 	ld de,RawKeyHookPtr+2
 	ld bc,($ff^(1 << RawKeyHookActive))*256 + SETTINGS_HOOKBACK_KEY
 	ld hl,flags + hookflags2
-	call DisableHook
-
-	;RawKeyHook
-	ld de,cxRedispHookPtr+2
-	ld bc,($ff^(1 << cxRedispHookActive))*256 + SETTINGS_HOOKBACK_REDISP
-	ld hl,flags + hookflags4
 	call DisableHook
 
 	;CursorHook
