@@ -191,6 +191,7 @@ temp3	.equ plotSScreen
 .var byte, totalXiters
 .var byte, thisXiters
 .var byte, completeXiters
+.var word, data_checksum
 
 ; For multiMenu
 .var byte, menuCurCol
@@ -375,6 +376,7 @@ maybe_menuGraphicalID .equ	$9d82	;Not currently used
 menuButtonNum	.equ	$9d83
 _ClearAppTitle	.equ	$56B3		;5056h
 _maybe_MonRestart .equ	$4fba
+_DrawSplitDivider .equ	$4855
 mZoom			.equ	04h
 mZoom3D			.equ	94h
 fastSpeed		.equ	5
@@ -643,7 +645,7 @@ ProgramStart_Uninstall:
 	call DisableHook
 
 	; Restore the reGraphHook area
-	ld de,GraphHookPtr+2
+	ld de,reGraphHookPtr+2
 	ld bc,($ff^(1 << reGraphHookActive))*256 + SETTINGS_HOOKBACK_REGR
 	ld hl,flags + hookflags3
 	call DisableHook

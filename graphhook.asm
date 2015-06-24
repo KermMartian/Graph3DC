@@ -20,16 +20,38 @@ SplitscreenGraphHook:
 	ret
 
 SplitscreenGraphHook_Redraw:
-	call SetSpeedFast
-	call Graph_Setup
-	call Graph_Clear_Screen			; calls DisplayNormal
-	call Graph_Recompute
-	call Graph_Rerotate
+	ld hl,(curRow)					; row and column
+	push hl
+		; The actual drawing process starts here
+		call SetSpeedFast
+		call Graph_Setup
+		call Graph_Clear_Screen			; calls DisplayNormal
+		
+		; Draw the horizontal divider
+		di
+		push iy
+			ld de,0
+			ld hl,319
+			ld bc,154
+			push bc
+				pop ix
+			ld iy,COLOR_BLACK
+			call ColorLine
+			pop iy
+		
+		call DataChecksum_Check
+		jr z,SplitscreenGraphHook_Redraw_NoRecompute
+		call Graph_Recompute
+		call Graph_Rerotate
+SplitscreenGraphHook_Redraw_NoRecompute:
+		call DisplayNormal
+		call Graph_Redraw
 
-	call DisplayNormal
-	call Graph_Redraw
-	call DisplayOrg
-	res graphDraw,(iy+graphFlags)
+		call DisplayOrg
+		res graphDraw,(iy+graphFlags)
+		call DataChecksum_Set
+		pop hl
+	ld (curRow),hl
 	or $ff
 	ret
 

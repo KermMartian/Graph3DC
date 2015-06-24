@@ -67,11 +67,19 @@ Graph_Setup:
 	ld (labelmode),a
 
 	; Load screen constants
+Graph_Setup_SetFactors:
 	ld hl,PXLMINY_WITHSTATUS
-	ld (pxlMinY),hl
-	ld hl,(0.5*(5/4))*INT_TO_8P8
-	ld (MapFactorX),hl
-	ld hl,(240-30)/2
+	push hl
+		ld (pxlMinY),hl
+		ld hl,(0.5*(5/4))*INT_TO_8P8
+		ld (MapFactorX),hl
+		pop de
+	call Graph_GetPxlBottom					; To hl
+	or a
+	sbc hl,de
+	srl h
+	rr l
+	;ld hl,(240-30)/2
 	ld (MapFactorY),hl
 	
 	; Load equation information

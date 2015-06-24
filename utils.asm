@@ -1060,3 +1060,52 @@ setWindow_Full:
 	ld a,10
 	ld (winBtm),a
 	ret
+
+; Inputs:
+;  - hl -> data
+;  - bc = length
+; Outputs:
+;  - de = checksum
+Checksum16Bit:
+	ld de,0
+Checksum16Bit_Loop:
+	ld a,(hl)
+	xor $01010110
+	add a,e
+	ld e,a
+	rl d
+	rl e
+	ld a,0
+	adc a,d
+	ld d,a
+	dec bc
+	ld a,b
+	or c
+	jr nz,Checksum16Bit_Loop
+	ret
+
+DataChecksum_Set:
+	call TrashRAM_SwapIn
+	ld hl,trash_ram_loc					;$C000
+	ld bc,trash_ram_fill				;<$4000 bytes
+	call Checksum16Bit
+	ld (data_checksum),de
+	call TrashRAM_SwapOut
+	ret
+
+DataChecksum_Check:
+	call TrashRAM_SwapIn
+	ld hl,trash_ram_loc					;$C000
+	ld bc,trash_ram_fill				;<$4000 bytes
+	call Checksum16Bit
+	push de
+		call TrashRAM_SwapOut
+		pop de
+	ld hl,(data_checksum)
+	jp cphlde
+
+DataChecksum_Reset:
+	ld hl,(data_checksum)
+	inc hl
+	ld (data_checksum),hl
+	ret

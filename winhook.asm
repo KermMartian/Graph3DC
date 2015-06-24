@@ -95,6 +95,7 @@ windowHook_LoadSimpleByte:
 	ld a,l
 	bcall(_SetXXOP1)
 windowHook_LoadDone:
+	call DataChecksum_Reset				 ; Doesn't modify OP1
 	ld hl,OP1
 	or $ff
 	ret
