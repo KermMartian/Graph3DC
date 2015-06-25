@@ -64,6 +64,9 @@
 ; [ ] Deal with split-screen flag.
 ;     [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ;     [ ] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, Graph
+;     [ ] Adjust culling code to take max and min Y into account
+;     [ ] Test and correct glitchiness of graph after Catalog
+;     [ ] Fix invalidating graph on zoom menu items (move the _resets) and Y= editing
 ; [ ] Test graph-table mode and adjust accordingly. Implement table mode?
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
@@ -121,8 +124,9 @@ temp3	.equ plotSScreen
 .var fp8.8, val_x
 .var fp8.8, val_y
 .var fp8.8, val_z
-.var fp8.8, MapFactorX
-.var word,  MapFactorY
+.var fp8.8, MapFactorX		
+.var fp8.8, MapFactorY1			; See [POST HERE] for explanation
+.var word,  MapFactorY2
 .var word,  PxlMinY
 
 .var fp8.8, frac				;Value 0.0 to 1.0 for color computation
@@ -191,7 +195,6 @@ temp3	.equ plotSScreen
 .var byte, totalXiters
 .var byte, thisXiters
 .var byte, completeXiters
-.var word, data_checksum
 
 ; For multiMenu
 .var byte, menuCurCol
@@ -296,6 +299,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_TRACE	71				;1 byte   - 1 if tracing, 0 otherwise
 #define SETTINGS_AVOFF_LABEL	72				;1 byte 
 #define SETTINGS_AVOFF_CXCUR	73				;1 byte   - current context, used for when we need to rename the current mode
+#define SETTINGS_AVOFF_CHKSM	74				;2 bytes: checksum of data on trash RAM page
 
 ; Used for the menu table
 #define MT_TEXT		0

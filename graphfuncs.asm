@@ -77,11 +77,18 @@ Graph_Setup_SetFactors:
 	call Graph_GetPxlBottom					; To hl
 	or a
 	sbc hl,de
-	srl h
-	rr l
-	;ld hl,(240-30)/2
-	ld (MapFactorY),hl
-	
+	push hl									; pxl_height
+		srl h
+		rr l
+		ld (MapFactorY2),hl					; was ld hl,(240-30)/2
+		pop hl
+	ld a,0									; Turn it into an 8.8 value
+	ld b,l									; ONLY WORKS FOR SCREENS < 256 PIXELS TALL!
+	ld c,0
+	ld de,256								; Have to cheat the decimal points because 320 doesn't fit into an FP8.8
+	call divabcde							; returns result in abc (but a.bc/d.e = ab.c)
+	ld (MapFactorY1),bc
+
 	; Load equation information
 	call CheckEnabled_Setup
 
@@ -1774,7 +1781,7 @@ Map_B_Points:
 		ld (pgrid_z),hl
 		ld hl,FP_MAGICCULL
 		call cphlde
-		jr z,Graph_Map_EQ_Inner_Cull
+		jp z,Graph_Map_EQ_Inner_Cull
 		ld hl,(cz)
 		ex de,hl
 		call subhlde_fp			;val_z = (val_z - cz)
@@ -1804,8 +1811,8 @@ Map_B_Points:
 			sla h
 			rl e
 			rl d
-			ld hl,(MapFactorX)					;256*[0.625+(dx-ex)/((5/4)*ez/dz)] = 256*(5/4)*[0.5+(dx-ex)/(ez/dz)] 
-			call addhlde_fp						; = 320*[0.5+(dx-ex)/(ez/dz)]
+			ld hl,(MapFactorX)					; 256*0.625+256*[(dx-ex)*((5/4)*ez/dz)] = 256*[0.625+(dx-ex)*((5/4)*ez/dz)] = 
+			call addhlde_fp						; 256*(5/4)*[0.5+(dx-ex)*(ez/dz)] = 320*[0.5+(dx-ex)*(ez/dz)]
 			;de*256 is the int, so just take d.e and put it directly in (sx)
 			; Not quite! Now we need to shift 4x, because of the precision trick above.
 			ld (sx),hl
@@ -1824,14 +1831,13 @@ Map_B_Points:
 		sla h
 		rl e
 		rl d
-		ld hl,(0.5*(5/4))*INT_TO_8P8
-		call addhlde_fp
-		ex de,hl
-		sla e
-		rl d									;double de
-		ld bc,(MapFactorY)						;120 because 240.
-		call signed_multbcde_fp
-		ld (sy),de								;d is the upper byte (int is in the bottom byte)
+		ld bc,(MapFactorY1)
+		call signed_multbcde_fp					; returns de
+		ld hl,(MapFactorY2)
+		add hl,de
+		ld de,(pxlMinY)
+		add hl,de
+		ld (sy),hl								;h is the upper byte (int is in the bottom byte)
 		jr Graph_Map_EQ_Inner_StoreReloop
 Graph_Map_EQ_Inner_Cull:
 		ld hl,FP_MAGICCULL
@@ -1994,7 +2000,7 @@ Graph_GetWinBottom:
 	dec a
 	bit grfSplit,(iy+sgrFlags)
 	ret z
-	ld a,5
+	ld a,4
 	ret
 
 Graph_GetPxlBottom:				; to hl

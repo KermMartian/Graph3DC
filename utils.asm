@@ -1089,8 +1089,16 @@ DataChecksum_Set:
 	ld hl,trash_ram_loc					;$C000
 	ld bc,trash_ram_fill				;<$4000 bytes
 	call Checksum16Bit
-	ld (data_checksum),de
-	call TrashRAM_SwapOut
+	push de
+		call TrashRAM_SwapOut
+		pop de
+	push de
+		ld a,SETTINGS_AVOFF_CHKSM
+		call LTS_GetPtr
+		pop de
+	ld (hl),e
+	inc hl
+	ld (hl),d
 	ret
 
 DataChecksum_Check:
@@ -1100,12 +1108,18 @@ DataChecksum_Check:
 	call Checksum16Bit
 	push de
 		call TrashRAM_SwapOut
+		ld a,SETTINGS_AVOFF_CHKSM
+		call LTS_GetWord
 		pop de
-	ld hl,(data_checksum)
 	jp cphlde
 
 DataChecksum_Reset:
-	ld hl,(data_checksum)
+	ld a,SETTINGS_AVOFF_CHKSM
+	call LTS_GetWord
 	inc hl
-	ld (data_checksum),hl
+	ld a,SETTINGS_AVOFF_CHKSM
+	call LTS_GetPtr
+	ld (hl),e
+	inc hl
+	ld (hl),d
 	ret

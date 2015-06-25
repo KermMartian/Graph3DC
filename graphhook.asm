@@ -66,7 +66,7 @@ cxInit_3DGraph:
 	call LTS_CacheAV
 	call Graph_Setup
 	call DisplayOrg
-	set graphDraw,(iy+graphFlags)
+	;call DataChecksum_Reset
 	ret
 
 cxRedisp_3DGraph:
@@ -74,13 +74,17 @@ cxRedisp_3DGraph:
 	call LTS_CacheAV
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
+
+	call DataChecksum_Check
+	jr z,cxRedisp_3DGraph_NoRecompute
 	call Graph_Recompute
 	call Graph_Rerotate
 
+cxRedisp_3DGraph_NoRecompute:
 	call DisplayNormal
 	call Graph_Redraw
 	call DisplayOrg
-	res graphDraw,(iy+graphFlags)
+	call DataChecksum_Set
 
 	; Check if tracing is enabled and we have enabled equations
 	ld a,SETTINGS_AVOFF_TRACE
@@ -152,15 +156,13 @@ GraphKeyHook_Graph_StoreAlpha:
 GraphKeyHook_Graph_StoreBeta:
 	ld (beta),de
 GraphKeyHook_Graph_Rerotate:
-	set graphDraw,(iy+graphFlags)
 	call SetSpeedFast
-
 	call DisplayNormal
 	call Graph_Erase
 	call Graph_Rerotate
 	call Graph_Redraw
 	call DisplayOrg
-	res graphDraw,(iy+graphFlags)
+	call DataChecksum_Set
 	jr GraphKeyHook_NoKey
 
 GraphKeyHook_OtherKey:
@@ -256,10 +258,12 @@ GraphKeyHook_Trace_Draw:
 ;-----------------------------------
 GraphKeyHook_ZoomIn:
 	call ZoomIn3D
+	call DataChecksum_Reset
 	bjump(_JForceGraphNoKey)
 
 GraphKeyHook_ZoomOut:
 	call ZoomOut3D
+	call DataChecksum_Reset
 	bjump(_JForceGraphNoKey)
 ;-----------------------------------
 GraphRedisp:
