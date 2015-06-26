@@ -53,15 +53,9 @@ ColorLine_RetPopBCDEHL:
 		pop hl
 	ret
 
-ColorLine:
+ColorLine:	
 	; de = x0, bc = y0, hl = x1, ix = y1, iy = colour
 	;
-	ld (lineColour),iy
-	ld a,1
-	ld (xyinc+0),a
-	ld (xyinc+1),a                          ; x/y inc
-	ld (xstart),de                          ; de = x0, hl = x1
-	
 	; Check for fully-offscreen lines: X or Y are both < pxlMinY, or X or Y are both > 320/240.
 	ld a,h
 	and d
@@ -84,7 +78,8 @@ ColorLine_NotOffscreenX:
 			push hl
 				push ix
 					pop de
-				ld bc,240
+				ld bc,(pxlMaxY)
+@:
 				or a
 				sbc hl,bc
 				add hl,bc
@@ -108,6 +103,13 @@ ColorLine_NotOffBottomY:
 			pop de
 		pop hl
 	ret nz
+
+ColorLine_Override:
+	ld (lineColour),iy
+	ld a,1
+	ld (xyinc+0),a
+	ld (xyinc+1),a                          ; x/y inc
+	ld (xstart),de                          ; de = x0, hl = x1
 
 	; Figure out the increments
 	ld a,h
@@ -280,7 +282,8 @@ ColorPixel:
 	add hl,bc
 	ret nc                                                                  ; return if offscreen
 	ex de,hl
-	ld bc,240
+	ld bc,(pxlMaxY)
+@:
 	or a
 	sbc hl,bc
 	add hl,bc

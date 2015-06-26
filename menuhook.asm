@@ -129,6 +129,7 @@ ZoomStandard3D_SetDim:
 	ld (hl),e
 	inc hl
 	ld (hl),d				; Offset 17:	MaxY = default
+	call DataChecksum_Reset
 	ret
 	
 ZoomIn3D:
@@ -151,6 +152,7 @@ ZoomIn3D:
 	ld (hl),e
 	inc hl
 	ld (hl),d
+	call DataChecksum_Reset
 	ret
 	
 ZoomOut3D:
@@ -173,6 +175,7 @@ ZoomOut3D:
 	ld (hl),c
 	inc hl
 	ld (hl),b
+	call DataChecksum_Reset
 	ret
 	
 PostZoomContextSwitch:

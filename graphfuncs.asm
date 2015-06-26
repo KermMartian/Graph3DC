@@ -68,13 +68,16 @@ Graph_Setup:
 
 	; Load screen constants
 Graph_Setup_SetFactors:
-	ld hl,PXLMINY_WITHSTATUS
+	call Graph_GetPxlBottom
+	ld (pxlMaxY),hl
 	push hl
-		ld (pxlMinY),hl
-		ld hl,(0.5*(5/4))*INT_TO_8P8
-		ld (MapFactorX),hl
-		pop de
-	call Graph_GetPxlBottom					; To hl
+		ld hl,PXLMINY_WITHSTATUS
+		push hl
+			ld (pxlMinY),hl
+			ld hl,(0.5*(5/4))*INT_TO_8P8
+			ld (MapFactorX),hl
+			pop de
+		pop hl
 	or a
 	sbc hl,de
 	push hl									; pxl_height
@@ -2004,8 +2007,8 @@ Graph_GetWinBottom:
 	ret
 
 Graph_GetPxlBottom:				; to hl
-	ld hl,240
+	ld hl,PXLMAXY_FULL
 	bit grfSplit,(iy+sgrFlags)
 	ret z
-	ld hl,154
+	ld hl,PXLMAXY_SPLIT
 	ret

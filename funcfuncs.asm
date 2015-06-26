@@ -77,13 +77,17 @@ SetFunctionMode:
 ; functions into Z1..Z[2 or 5], and vice versa
 ; They work by directly modifying the VAT.
 SwapZYFuncs_In:
+	call SwapZYFuncs_IsSwapped
+	ret nz							; Already swapped
+	ld (hl),1
+	jp SwapZYFuncs
+
+SwapZYFuncs_IsSwapped:
 	ld a,SETTINGS_AVOFF_EQSWAPPED
 	call LTS_GetPtr
 	ld a,(hl)
 	or a
-	ret nz							; Already swapped
-	ld (hl),1
-	jp SwapZYFuncs
+	ret
 
 SwapZYFuncs_Out:
 	ld a,SETTINGS_AVOFF_EQSWAPPED

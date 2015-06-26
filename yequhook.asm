@@ -213,7 +213,14 @@ yEquHook_Not6:
 			pop hl
 		inc (hl)
 		pop hl
+	jr yEquHook_Allow
+
 yEquHook_Not8:
+	dec a
+	jr nz,yEquHook_Not9
+	call DataChecksum_Reset
+
+yEquHook_Not9:
 yEquHook_Allow:
 	cp a
 	ret

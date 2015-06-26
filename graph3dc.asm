@@ -44,7 +44,6 @@
 ; [X] Fix memory leak on context change out of Graph or Format mode
 ; [-] Fix bug in Y= menu when entering a menu or using Rcl. -> Unable to replicate
 ; [X] Explain what's happening while computation is underway
-; ------v----New items----v------
 ; [X] Add ability to label X, Y, and Z axes; add LabelOn/Off flag
 ; [X] Add tip for equation entry in Y= menu
 ; [X] Fix top line of Y=/Z= menu in splitscreen mode
@@ -59,14 +58,17 @@
 ; [-] Fix status area app title in graph menu [not replicable?]
 ; [X] Fix explanation display when Z= scrolls -> Moved to top of window
 ; [X] Test interactions with programs -> Allows programs to use Y= mode even when Z= mode is enabled for the user
+; ------v----New items----v------
+; [ ] Deal with split-screen flag.
+;     [X] Fix invalidating graph on zoom menu items (move the _resets) and Y= editing
+;     [X] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
+;     [X] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, -G-r-a-p-h-
+;     [X] Adjust culling code to take max and min Y into account
+;     [ ] Test and correct glitchiness of graph after Catalog
+;     [ ] Replicate and fix freeze after switching split mode without enabling 3D mode
+; [ ] Implement self-adjusting scaling!
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Deal with split-screen flag.
-;     [ ] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
-;     [ ] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, Graph
-;     [ ] Adjust culling code to take max and min Y into account
-;     [ ] Test and correct glitchiness of graph after Catalog
-;     [ ] Fix invalidating graph on zoom menu items (move the _resets) and Y= editing
 ; [ ] Test graph-table mode and adjust accordingly. Implement table mode?
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
@@ -128,6 +130,7 @@ temp3	.equ plotSScreen
 .var fp8.8, MapFactorY1			; See [POST HERE] for explanation
 .var word,  MapFactorY2
 .var word,  PxlMinY
+.var word,  PxlMaxY
 
 .var fp8.8, frac				;Value 0.0 to 1.0 for color computation
 .var fp8.8, clr_r
@@ -243,6 +246,8 @@ temp3	.equ plotSScreen
 #define AXES_BOUND_PAIRS_LABELS 3
 
 #define PXLMINY_WITHSTATUS 30
+#define PXLMAXY_FULL 240
+#define PXLMAXY_SPLIT 154
 #define YEQU_EXPLAIN_START_X 100
 #define TRACE_COORDS_START_Y 34
 #define TRACE_COORDS_START_X 1

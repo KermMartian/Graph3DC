@@ -22,34 +22,46 @@ SplitscreenGraphHook:
 SplitscreenGraphHook_Redraw:
 	ld hl,(curRow)					; row and column
 	push hl
-		; The actual drawing process starts here
-		call SetSpeedFast
-		call Graph_Setup
-		call Graph_Clear_Screen			; calls DisplayNormal
-		
-		; Draw the horizontal divider
-		di
-		push iy
-			ld de,0
-			ld hl,319
-			ld bc,154
-			push bc
-				pop ix
-			ld iy,COLOR_BLACK
-			call ColorLine
-			pop iy
-		
-		call DataChecksum_Check
-		jr z,SplitscreenGraphHook_Redraw_NoRecompute
-		call Graph_Recompute
-		call Graph_Rerotate
-SplitscreenGraphHook_Redraw_NoRecompute:
-		call DisplayNormal
-		call Graph_Redraw
+		call SwapZYFuncs_IsSwapped
+		push af
+			call nz,SwapZYFuncs_Out
+			
+			; The actual drawing process starts here
+			call SetSpeedFast
+			call Graph_Setup
+			call Graph_Clear_Screen			; calls DisplayNormal
+			
+			; Draw the horizontal divider
+			di
+			push iy
+				ld hl,(PxlMaxY)
+				push hl
+					ld hl,PXLMAXY_FULL
+					ld (PxlMaxY),hl
+					ld de,0
+					ld hl,319
+					ld bc,154
+					push bc
+						pop ix
+					ld iy,COLOR_BLACK
+					call ColorLine_Override
+					pop hl
+				ld (PxlMaxY),hl
+				pop iy
+			
+			call DataChecksum_Check
+			jr z,SplitscreenGraphHook_Redraw_NoRecompute
+			call Graph_Recompute
+			call Graph_Rerotate
+	SplitscreenGraphHook_Redraw_NoRecompute:
+			call DisplayNormal
+			call Graph_Redraw
 
-		call DisplayOrg
-		res graphDraw,(iy+graphFlags)
-		call DataChecksum_Set
+			call DisplayOrg
+			res graphDraw,(iy+graphFlags)
+			call DataChecksum_Set
+			pop af
+		call nz,SwapZYFuncs_In
 		pop hl
 	ld (curRow),hl
 	or $ff
@@ -258,12 +270,10 @@ GraphKeyHook_Trace_Draw:
 ;-----------------------------------
 GraphKeyHook_ZoomIn:
 	call ZoomIn3D
-	call DataChecksum_Reset
 	bjump(_JForceGraphNoKey)
 
 GraphKeyHook_ZoomOut:
 	call ZoomOut3D
-	call DataChecksum_Reset
 	bjump(_JForceGraphNoKey)
 ;-----------------------------------
 GraphRedisp:
