@@ -350,6 +350,7 @@ cxMain_PlotLine_3DMode:
 	pop af
 	call z,SwapZYFuncs_Out
 	call SetFunctionMode
+	set grfSChanged,(iy+sgrFlags)
 	jr cxMain_PlotLine_RestoreApp
 cxMain_PlotLine_NotEnter:
 	cp kClear

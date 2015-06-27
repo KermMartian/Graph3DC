@@ -64,12 +64,16 @@
 ;     [X] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ;     [X] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, -G-r-a-p-h-
 ;     [X] Adjust culling code to take max and min Y into account
-;     [ ] Test and correct glitchiness of graph after Catalog
-;     [ ] Replicate and fix freeze after switching split mode without enabling 3D mode
+;     [X] Fix redisplay of homescreen in 3D splitscreen mode
+;     [X] set grfSChanged when switching 2D<>3D modes in splitscreen mode
+;     [X] Replicate and fix freeze after switching split mode without enabling 3D mode
+;     [-] Test and correct glitchiness of graph after Catalog -> cannot replicate
+;     [ ] Fix re-rendering 3D graph in splitscreen mode when leaving menus
 ; [ ] Implement self-adjusting scaling!
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Test graph-table mode and adjust accordingly. Implement table mode?
+; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
 
@@ -192,6 +196,7 @@ temp3	.equ plotSScreen
 .var byte, at_step_x
 .var byte, at_step_y
 .var byte, counteqs
+.var byte, maxeqs
 .var byte, erase_mode
 .var word, lts_av
 .var byte[MAX_EQS], eq_en_cache	; Cache of which Z functions are enabled
@@ -384,6 +389,7 @@ PlotEnabled3	.equ	$9836
 maybe_menuGraphicalID .equ	$9d82	;Not currently used
 menuButtonNum	.equ	$9d83
 _ClearAppTitle	.equ	$56B3		;5056h
+_RstrShadow		.equ	$4570
 _maybe_MonRestart .equ	$4fba
 _DrawSplitDivider .equ	$4855
 mZoom			.equ	04h
@@ -454,19 +460,38 @@ ProgramStart:
 	
 	ld a,(MenuHookPtr+2)
 	cp b
-	jr z,ProgramStart_HookBackupDone
+	jr z,ProgramStart_HookBackupNoMenu
 
-	; Back up the current Menu hook
+	; Back up the current menuHook
+	push bc
+		ld a,SETTINGS_HOOKBACK_MENU
+		call LTS_GetPtr						;to hl
+		ld de,MenuHookPtr
+		ex de,hl
+		ld bc,3
+		ldir
+		ld a,(flags + hookflags4)			; contains MenuHookActive
+		and 1 << MenuHookActive
+		ld (de),a
+		pop bc
+
+ProgramStart_HookBackupNoMenu:
+	ld a,(regraphHookPtr+2)
+	cp b
+	jr z,ProgramStart_HookBackupNoRegraph
+
+	; Back up the current regraphHook
 	ld a,SETTINGS_HOOKBACK_MENU
 	call LTS_GetPtr						;to hl
-	ld de,MenuHookPtr
+	ld de,regraphHookPtr
 	ex de,hl
 	ld bc,3
 	ldir
-	ld a,(flags + hookflags4)			; contains MenuHookActive
-	and 1 << MenuHookActive
+	ld a,(flags + hookflags3)			; contains MenuHookActive
+	and 1 << regraphHookActive
 	ld (de),a
-
+	
+ProgramStart_HookBackupNoRegraph:
 ProgramStart_HookBackupDone:
 	ld a,1
 ProgramStart_appInstalled:
@@ -670,15 +695,16 @@ ProgramStart_Install:
 	ld hl,appChangeHook						;the ACTUAL appChange hook.
 	bcall(_SetAppChangeHook)
 
-	; Set up new Yequ hook
+	; Set up new menuHook
 	call GetCurrentPage
 	ld hl,MenuHook
 	bcall(_SetMenuHook)
 
-	; Set up new graph hook. We use a custom App
+	; Set up new regraphHook. We use a custom App
 	; context for the actual graph context, but the
-	; OS uses the graphhook in half-res mode to draw
-	; a graph, and we want to hook it.
+	; OS uses the regraphhook in splitscreen mode to draw
+	; a graph, and we want to hook it. It does NOT seem
+	; to use the graphhook, which is a pain in the neck.
 	call GetCurrentPage
 	ld hl,SplitscreenGraphHook
 	bcall(_SetRegraphHook)

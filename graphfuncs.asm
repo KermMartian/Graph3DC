@@ -66,6 +66,10 @@ Graph_Setup:
 	call LTS_GetByte
 	ld (labelmode),a
 
+	ld a,SETTINGS_AVOFF_MAXEQS
+	call LTS_GetByte
+	ld (maxeqs),a
+
 	; Load screen constants
 Graph_Setup_SetFactors:
 	call Graph_GetPxlBottom
@@ -116,7 +120,7 @@ Graph_Clear_Screen:
 	out	($10),a
 	out	($10),a
 
-	call Graph_GetPxlBottom				; to hl
+	ld hl,(PxlMaxY)
 	ld de,(PxlMinY)
 	or a
 	sbc hl,de
@@ -304,8 +308,7 @@ Graph_Recolor_SetupProgress:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld a,SETTINGS_AVOFF_MAXEQS
-	call LTS_GetByte
+	ld a,(maxeqs)
 	ld b,a
 #endif
 	ld c,tZ1
@@ -689,8 +692,7 @@ Graph_Compute_EQ_Next:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld a,SETTINGS_AVOFF_MAXEQS
-	call LTS_GetByte
+	ld a,(maxeqs)
 	ld b,a
 #endif
 	ld c,tZ1
@@ -1042,8 +1044,7 @@ Graph_Rerotate:
 #ifdef DEBUG_GRAPH
 	ld b,1
 #else
-	ld a,SETTINGS_AVOFF_MAXEQS
-	call LTS_GetByte
+	ld a,(maxeqs)
 	ld b,a
 #endif
 	ld c,tZ1
@@ -1169,8 +1170,7 @@ Graph_Render:
 #ifdef DEBUG_GRAPH
 		ld b,1
 #else
-		ld a,SETTINGS_AVOFF_MAXEQS
-		call LTS_GetByte
+		ld a,(maxeqs)
 		ld b,a
 #endif
 		ld c,tZ1

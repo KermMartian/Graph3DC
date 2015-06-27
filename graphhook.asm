@@ -19,12 +19,38 @@ SplitscreenGraphHook:
 	cp a
 	ret
 
+SplitscreenGraphHook_Chain:
+		pop af
+	push hl
+		ld hl,SETTINGS_HOOKBACK_REGR
+		call HookChainer						; Let the other hook decide
+	ret
+
+SplitscreenRedispHook:
+	.db $83
+	call LTS_CacheAV
+	call SplitscreenGraphHook_Redraw
+
+	; Uninstall myself
+	ld de,cxRedispHookPtr+2
+	ld bc,($ff^(1 << cxRedispHookActive))*256 + SETTINGS_HOOKBACK_REDISP
+	ld hl,flags + hookflags4
+	call DisableHook
+	
+	cp a
+	ret
+
 SplitscreenGraphHook_Redraw:
 	ld hl,(curRow)					; row and column
 	push hl
 		call SwapZYFuncs_IsSwapped
 		push af
 			call nz,SwapZYFuncs_Out
+			
+			; Fix the homescreen, because the OS seems to hate us.
+			ld a,(cxCurApp)
+			cp kQuit
+			bcallz(_RstrShadow)
 			
 			; The actual drawing process starts here
 			call SetSpeedFast
@@ -53,7 +79,7 @@ SplitscreenGraphHook_Redraw:
 			jr z,SplitscreenGraphHook_Redraw_NoRecompute
 			call Graph_Recompute
 			call Graph_Rerotate
-	SplitscreenGraphHook_Redraw_NoRecompute:
+SplitscreenGraphHook_Redraw_NoRecompute:
 			call DisplayNormal
 			call Graph_Redraw
 
@@ -66,12 +92,6 @@ SplitscreenGraphHook_Redraw:
 	ld (curRow),hl
 	or $ff
 	ret
-
-SplitscreenGraphHook_Chain:
-		pop af
-	push hl
-		ld hl,SETTINGS_HOOKBACK_REGR
-		jp HookChainer						; Let the other hook decide
 
 cxInit_3DGraph:
 	set appMenus,(iy+appFlags)				; Let menus be opened.

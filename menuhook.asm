@@ -59,6 +59,31 @@ ZoomHook_Not1:
 	ld a,b
 	or a
 	jr nz,ZoomHook_RetZSet
+	bit grfSplit,(iy+sgrFlags)
+	jr z,ZoomHook_2_NoSplit
+
+	call LTS_CacheAV
+	; Back up the current cxRedispHook
+	ld a,SETTINGS_HOOKBACK_REDISP
+	call LTS_GetPtr						;to hl
+	ld de,cxRedispHookPtr
+	ex de,hl
+	ld bc,3
+	ldir
+	ld a,(flags + hookflags4)			; contains MenuHookActive
+	and 1 << cxRedispHookActive
+	ld (de),a
+
+	; Set up a temporary cxRedispHook
+	call GetCurrentPage
+	ld hl,SplitscreenRedispHook
+	bcall(_SetcxRedispHook)
+
+ZoomHook_RetZSet:
+	cp a
+	ret
+
+ZoomHook_2_NoSplit:
 	push bc
 		call LTS_CacheAV
 		ld a,SETTINGS_AVOFF_MODE
@@ -84,7 +109,6 @@ ZoomHook_Not1:
 	bjump(_Mon)
 
 ZoomHook_Not3:
-ZoomHook_RetZSet:
 	cp a
 	ret
 
