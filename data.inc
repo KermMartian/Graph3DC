@@ -89,13 +89,18 @@ Window_Field_Table:
 Window_Field_Table_OS:
 	.db SETTINGS_AVOFF_MINXOS
 	.db SETTINGS_AVOFF_MAXXOS
-	.db -1
+	.db SETTINGS_AVOFF_XDIM
 	.db SETTINGS_AVOFF_MINYOS
 	.db SETTINGS_AVOFF_MAXYOS
-	.db -1
-	.db -1
+	.db SETTINGS_AVOFF_YDIM
+	.db SETTINGS_AVOFF_ZOOMF
 
-	
+WindowAutoScale_BoundLUT:
+	.db SETTINGS_AVOFF_MINXOS,SETTINGS_AVOFF_MINX
+	.db SETTINGS_AVOFF_MINYOS,SETTINGS_AVOFF_MINY
+	.db SETTINGS_AVOFF_MAXXOS,SETTINGS_AVOFF_MAXX
+	.db SETTINGS_AVOFF_MAXYOS,SETTINGS_AVOFF_MAXY
+
 AppIcon:
 	.db 2									;Icon type: 16x16, 4-bit color
 	.db $ff,$ff,$a5,$34,$a4,$83,$b5,$68,$7c,$c4,$8b,$cb,$3c,$a5,$9a,$6f
@@ -272,3 +277,8 @@ sYequExplain:
 	.db "Use X and Y as indep vars",0
 sGraphExplain:
 	.db "Precomputing X,Y,Z values",0
+	
+MinXYDefault:
+	.db $80,$80,(DEFAULT_XY_MAX/INT_TO_8P8) * 16 + 0, 0, 0, 0, 0, 0, 0
+MaxXYDefault:
+	.db $00,$80,(DEFAULT_XY_MAX/INT_TO_8P8) * 16 + 0, 0, 0, 0, 0, 0, 0

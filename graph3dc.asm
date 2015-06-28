@@ -74,8 +74,12 @@
 ; [X] Don't force rotation around z=0 -> store computed Z bounds in appvar for use, including for cz?
 ; [X] Re-fix label erase
 ; [X] Test graph-table mode and adjust accordingly. Implement table mode? -> No. But catch it?
-; [ ] Implement self-adjusting scaling!
-; [ ] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
+; [X] Implement self-adjusting scaling!
+; [X] Move code to convert OS min/max X/Y to FP a function called separately, call from Window menu
+;     [X] Actually make this the self-adjusting scaling routine 
+; [ ] Make zoom in/out manipulate the OS values instead of FP values, then call function from previous bullet
+;     [ ] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
+; [ ] Adjust tracing to display OS-computed X and Y values for precision
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
@@ -248,10 +252,10 @@ temp3	.equ plotSScreen
 #define DEFAULT_XY_RES MAX_XY_RES
 #define DEFAULT_XY_RES_HI MAX_XY_RES_HI
 
-#define DEFAULT_XY_MIN    $F800
-#define DEFAULT_XY_MAX    $0800
 #define DEFAULT_XY_SCALEF $0100
 #define DEFAULT_XY_ZOOMF  $00C0
+#define DEFAULT_XY_MIN    $F800
+#define DEFAULT_XY_MAX    $0800
 
 #define AXES_BOUND_COORDS 23
 #define AXES_BOUND_PAIRS_AXES 9
@@ -318,7 +322,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_TRACE	71				;1 byte   - 1 if tracing, 0 otherwise
 #define SETTINGS_AVOFF_LABEL	72				;1 byte 
 #define SETTINGS_AVOFF_CXCUR	73				;1 byte   - current context, used for when we need to rename the current mode
-#define SETTINGS_AVOFF_CHKSM	74				;2 bytes: checksum of data on trash RAM page
+#define SETTINGS_AVOFF_CHKSM	74				;2 bytes  - checksum of data on trash RAM page
 #define SETTINGS_AVOFF_MINXOS	76				;9 bytes
 #define SETTINGS_AVOFF_MAXXOS	85				;9 bytes
 #define SETTINGS_AVOFF_MINYOS	94				;9 bytes

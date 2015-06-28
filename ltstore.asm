@@ -22,6 +22,19 @@ LTS_GetPtr:
 		pop de
 	ret
 
+LTS_SetWord:
+	push hl
+		push de
+			push hl
+				call LTS_GetPtr
+				pop de
+			ld (hl),e
+			inc hl
+			ld (hl),d
+			pop de
+		pop hl
+	ret
+	
 LTS_CacheAV:
 	; Save OP1
 	ld hl,OP1
@@ -84,6 +97,9 @@ LTS_CreateAV:
 	ld de,SETTINGS_AVOFF_MAXEQS - SETTINGS_AVOFF_COLOR
 	add hl,de
 	ld (hl),MAX_EQS
+	inc hl
+	inc hl					; to SETTINGS_AVOFF_LABEL
+	ld (hl),1
 	
 	call ZoomStandard3D
 

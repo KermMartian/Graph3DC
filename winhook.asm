@@ -60,7 +60,7 @@ windowHook_GetValueToOp1:
 	sub WINDOW_ID_OFFSET
 	; Set Xmin, Xmax, Ymin, Ymax to the dialog fields
 	push af
-		ld hl,Window_Field_Table
+		ld hl,Window_Field_Table_OS
 		ld e,a
 		ld d,0
 		add hl,de
@@ -68,41 +68,43 @@ windowHook_GetValueToOp1:
 		; Loaded offset into AppVar of value from table
 		call LTS_GetPtr
 		; Got actual pointer in AppVar
-		ld a,(hl)
-		inc hl
-		ld h,(hl)
-		ld l,a
-		; Loaded value from address of value
 		pop af
 	cp 2
 	jr z,windowHook_LoadSimpleByte
 	cp 5
 	jr z,windowHook_LoadSimpleByte
-
-	push af
-		call FPtoOP1
-		pop af
 	cp 6
-	jr z,windowHook_LoadDone			;ie, don't scale it
-	bcall(_OP1toOP4)
-	ld a,SETTINGS_AVOFF_SCALEF
-	call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
+	jr z,windowHook_LoadFromFP
+
+	call OPXtoOP1						; copies 9 bytes from AppVar to OP1
+	;bcall(_OP1toOP4)
+	;ld a,SETTINGS_AVOFF_SCALEF
+	;call LTS_GetWord					; Used to keep minx/maxx/miny/maxy sane
+	;call FPtoOP1
+	;bcall(_OP4toOP2)
+	;bcall(_FPMult)
+	jr windowHook_LoadDone
+windowHook_LoadFromFP:
+	ld a,(hl)
+	inc hl
+	ld h,(hl)
+	ld l,a
 	call FPtoOP1
-	bcall(_OP4toOP2)
-	bcall(_FPMult)
 	jr windowHook_LoadDone
 windowHook_LoadSimpleByte:
-	ld a,l
+	ld a,(hl)
+	; Loaded value from address of value
 	bcall(_SetXXOP1)
 windowHook_LoadDone:
-	call DataChecksum_Reset				 ; Doesn't modify OP1
 	ld hl,OP1
 	or $ff
 	ret
 windowHook_Not5:
 	dec a
-	jr nz,windowHook_Not6
-	set graphDraw,(iy + graphFlags)
+	jp nz,windowHook_Not6
+	push hl
+		call DataChecksum_Reset				 ; Doesn't modify OP1
+		pop hl
 windowHook_SaveOp1toValue:
 	ld a,(hl)
 	sub WINDOW_ID_OFFSET
@@ -126,13 +128,20 @@ windowHook_SaveOp1toValue:
 	push hl
 		cp 6
 		jr z,windowHook_SaveOp1toValue_NoScale
-		bcall(_OP1toOP4)
-		ld a,SETTINGS_AVOFF_SCALEF
-		call LTS_GetWord					;ld hl,(scalefactor)			; Used to keep minx/maxx/miny/maxy sane
-		call FPtoOP1
-		bcall(_OP1toOP2)
-		bcall(_OP4toOP1)
-		bcall(_FPDiv)
+		pop hl
+	; First store the raw OS version for this menu
+	ld hl,Window_Field_Table_OS
+	ld e,a
+	ld d,0
+	add hl,de
+	ld a,(hl)
+	call LTS_GetPtr					; to hl
+	ld de,OP1
+	ex de,hl
+	call OPXtoOPX
+	; Now store the scaled version for the rendering routines
+	call windowAutoScale
+	jr windowHook_SaveDone
 windowHook_SaveOp1toValue_NoScale:
 		call OP1toFP
 		pop de
@@ -201,4 +210,89 @@ windowHook_Not9:
 windowHook_Not10:
 windowHook_Allow:
 	xor a
+	ret
+
+; The following function determines if the X or Y span is greater, then sets all
+; of the remaining bounds from the larger one.
+windowAutoScale:
+	call GetWindow_MinXMaxX
+	bcall(_FPSub)
+	call OP1toOP4
+	call GetWindow_MinYMaxY
+	bcall(_FPSub)
+	call OP4toOP2
+	bcall(_FPSub)							; Move Y span to OP1
+	bcall(_CpOP1OP2)
+	jr z,windowAutoScale_UseY
+	jr nc,windowAutoScale_UseY
+windowAutoScale_UseX:
+	call GetWindow_MinXMaxX
+	bcall(_AbsO1O2Cp)
+	jr z,windowAutoScale_SetScaleFac		; OP1 is equal to OP2
+	jr nc,windowAutoScale_SetScaleFac		; OP1 is > to OP2
+	call OP2toOP1							; OP1 is < OP2
+	jr windowAutoScale_SetScaleFac
+
+windowAutoScale_UseY:
+	call GetWindow_MinYMaxY
+	bcall(_AbsO1O2Cp)
+	jr z,windowAutoScale_SetScaleFac		; OP1 is equal to OP2
+	jr nc,windowAutoScale_SetScaleFac		; OP1 is > to OP2
+	call OP2toOP1							; OP1 is < OP2
+windowAutoScale_SetScaleFac:
+	; OP1 contains the larger value. Get the default max to OP2
+	ld hl,MaxXYDefault
+	ld de,OP2
+	call OPXtoOPX
+	bcall(_FPDiv)							; Divide, convert to FP, store to ScaleF
+	call OP1toFP
+	ld a,SETTINGS_AVOFF_SCALEF
+	call LTS_SetWord
+	
+windowAutoScale_SetWindow:					; Now, use the new scale factor to set the four window bounds
+	ld a,SETTINGS_AVOFF_SCALEF
+	call LTS_GetWord
+	call FPtoOP1
+	call OP1toOP4
+	
+	ld b,4
+	ld hl,WindowAutoScale_BoundLUT
+windowAutoScale_SetWindow_Loop:
+	push bc
+		ld a,(hl)
+		inc hl
+		push hl
+			call LTS_GetPtr
+			rst 20h
+			call OP4toOP2
+			bcall(_FPDiv)
+			call OP1toFP
+			pop de
+		ld a,(de)
+		inc de
+		push de
+			call LTS_SetWord
+			pop hl
+		pop bc
+	djnz windowAutoScale_SetWindow_Loop
+	ret
+	
+GetWindow_MinXMaxX:
+	ld a,SETTINGS_AVOFF_MINXOS				; Move X span to OP4
+	call LTS_GetPtr
+	ld de,OP2
+	call OPXtoOPX
+	ld a,SETTINGS_AVOFF_MAXXOS
+	call LTS_GetPtr
+	rst 20h
+	ret
+
+GetWindow_MinYMaxY:
+	ld a,SETTINGS_AVOFF_MINYOS				; Move X span to OP4
+	call LTS_GetPtr
+	ld de,OP2
+	call OPXtoOPX
+	ld a,SETTINGS_AVOFF_MAXYOS
+	call LTS_GetPtr
+	rst 20h
 	ret

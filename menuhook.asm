@@ -126,35 +126,40 @@ ZoomStandard3D_SetDim:
 	inc hl
 	ld (hl),b				; Offset 8:		DimY = maximum possible
 	inc hl
-	ld de,DEFAULT_XY_SCALEF
-	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 9:		ScaleFactor = 1
 	inc hl
 	ld de,DEFAULT_XY_ZOOMF
 	ld (hl),e
 	inc hl
 	ld (hl),d				; Offset 11:		ZoomFactor = 0.75
-	inc hl
-	ld de,DEFAULT_XY_MIN
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 13:	MinX = default
-	inc hl
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 15:	MinY = default
-	inc hl
-	inc hl					; Offset 17:	Skip MinZ
-	inc hl
-	ld de,DEFAULT_XY_MAX
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 19:	MaxX = default
-	inc hl
-	ld (hl),e
-	inc hl
-	ld (hl),d				; Offset 21:	MaxY = default
+	
+	; Set minimum X and Y OS values...
+	ld a,SETTINGS_AVOFF_MINXOS
+	call LTS_GetPtr
+	ld de,MinXYDefault
+	ex de,hl
+	push hl
+		call OPXtoOPX
+		ld a,SETTINGS_AVOFF_MINYOS
+		call LTS_GetPtr
+		pop hl
+	call OPXtoOPX
+	
+	; Set maximum X and Y OS values...
+	ld a,SETTINGS_AVOFF_MAXXOS
+	call LTS_GetPtr
+	ld de,MaxXYDefault
+	ex de,hl
+	push hl
+		call OPXtoOPX
+		ld a,SETTINGS_AVOFF_MAXYOS
+		call LTS_GetPtr
+		pop hl
+	call OPXtoOPX
+	
+	; And now update the fixed-point version
+	call windowAutoScale
+	
 	call DataChecksum_Reset
 	ret
 	
