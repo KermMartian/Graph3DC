@@ -32,7 +32,7 @@ DrawTraceCursor:
 		ld iy,traceCursorBack
 		ld ix,TraceCursor
 		call DrawSprite_1Bit_SaveBuf
-		call Full_Window
+		call DisplayOrg
 		pop iy
 	ei
 	set curOn,(iy+curFlags)
@@ -44,7 +44,7 @@ EraseTraceCursor:
 	ld ix,traceCursorBack
 	di
 	call DrawSprite_16Bit
-	call Full_Window
+	call DisplayOrg
 	ei
 	res curOn,(iy+curFlags)
 GraphCursorHook_NoFlash:
@@ -234,7 +234,6 @@ DrawTraceCoords_SaveAreaLoop:
 	res fracDrawLFont,(iy+fontFlags)
 	bcall(_DispOP1A)
 Trace_Compute_EQ_Error:					; All done with displaying the trace X/Y/Z values
-
 	ret
 
 EraseTraceCoords:

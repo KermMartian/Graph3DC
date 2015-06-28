@@ -78,9 +78,11 @@
 ; [X] Move code to convert OS min/max X/Y to FP a function called separately, call from Window menu
 ;     [X] Actually make this the self-adjusting scaling routine 
 ; [X] Catch/fix divby0 when trying to set small window bounds
-; [ ] Make zoom in/out manipulate the OS values instead of FP values, then call function from previous bullet
-;     [ ] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
-; [ ] Adjust tracing to display OS-computed X and Y values for precision
+; [X] Make zoom in/out manipulate the OS values instead of FP values, then call function from previous bullet
+;     [X] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
+; [X] Adjust tracing to display OS-computed X and Y values for precision
+; [X] Fix trace cursor in status area
+; [ ] Fix bad erasing when quitting Trace mode. Also manifests itself as axes-over-graph in splitscreen mode.
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.

@@ -386,6 +386,21 @@ PutSApp:
 	ld (curRow),a
 	jr PutSApp
 
+DrawSprite_OffscreenCheck_WithYBounds:
+	push de
+		ld de,(PxlMinY)
+		call cphlde
+		jr c,DrawSprite_OffscreenCheck_WithYBounds_Abort
+		ld de,(PxlMaxY)
+		call cphlde
+		jr nc,DrawSprite_OffscreenCheck_WithYBounds_Abort
+		pop de
+	jr DrawSprite_OffscreenCheck
+DrawSprite_OffscreenCheck_WithYBounds_Abort:
+		pop de
+	scf
+	ret
+	
 DrawSprite_OffscreenCheck:				;Re-used by all DrawSprite routines
 	push bc
 		ld b,0
@@ -437,7 +452,7 @@ DrawSprite_CheckAndLoad:
 ;de=x, hl=y
 ;ix->sprite (.db width, height \ .db bitpacked_padded_rows)
 DrawSprite_16Bit:
-	call DrawSprite_OffscreenCheck		; hl, ix no longer needed after this
+	call DrawSprite_OffscreenCheck_WithYBounds		; hl, ix no longer needed after this
 	ld a,(de)
 	ld c,a			;Store width in save buffer and c
 	inc de
@@ -460,7 +475,7 @@ DrawSprite_1Bit_SaveBuf:
 ;ix->sprite (.db width, height \ .db bitpacked_padded_rows)
 ; Must check that coordinates are not offscreen manually!
 	push bc
-		call DrawSprite_OffscreenCheck		; hl no longer needed after this
+		call DrawSprite_OffscreenCheck_WithYBounds		; hl no longer needed after this
 		pop hl
 	ret c
 	ret nz			;DrawSprite_OffscreenCheck returns z on success
@@ -1006,6 +1021,9 @@ SetSpeed:
 	ret
 
 ;--------------------------------------------------
+OPXtoOP2:
+	ld de,OP2
+	jr OPXtoOPX
 OP1toOPX:
 	ld hl,OP1
 	jr OPXtoOPX

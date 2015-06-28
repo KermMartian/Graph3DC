@@ -241,8 +241,7 @@ windowAutoScale_UseY:
 windowAutoScale_SetScaleFac:
 	; OP1 contains the larger value. Get the default max to OP2
 	ld hl,MaxXYDefault
-	ld de,OP2
-	call OPXtoOPX
+	call OPXtoOP2
 	bcall(_FPDiv)							; Divide, convert to FP, store to ScaleF
 	call OP1toFP
 	ld a,SETTINGS_AVOFF_SCALEF
@@ -279,8 +278,7 @@ windowAutoScale_SetWindow_Loop:
 GetWindow_MinXMaxX:
 	ld a,SETTINGS_AVOFF_MINXOS
 	call LTS_GetPtr
-	ld de,OP2
-	call OPXtoOPX
+	call OPXtoOP2
 	ld a,SETTINGS_AVOFF_MAXXOS
 	call LTS_GetPtr
 	rst 20h
@@ -289,8 +287,7 @@ GetWindow_MinXMaxX:
 GetWindow_MinYMaxY:
 	ld a,SETTINGS_AVOFF_MINYOS
 	call LTS_GetPtr
-	ld de,OP2
-	call OPXtoOPX
+	call OPXtoOP2
 	ld a,SETTINGS_AVOFF_MAXYOS
 	call LTS_GetPtr
 	rst 20h

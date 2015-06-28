@@ -288,42 +288,43 @@ Graph_Recolor_SetupProgress:
 
 	; Pre-compute deltaX and deltaY
 	; - max X
-	ld hl,(max_x)
-	call FPtoOP1_scaled
-	ld hl,OP1
+	ld a,SETTINGS_AVOFF_MAXXOS
+	call LTS_GetPtr
 	ld de,maxX_OS
 	call OPXtoOPX
 	; - min X
-	ld hl,(min_x)
-	call FPtoOP1_scaled
-	call OP1toOP2
+	ld a,SETTINGS_AVOFF_MINXOS
+	call LTS_GetPtr
+	call OPXtoOP2
 	ld hl,maxX_OS
-	call OPXtoOP1
+	rst 20h
 	bcall(_FPSub)
 	; - delta X
-	bcall(_PushOP1)
+	ld hl,OP1
+	ld de,OP5
+	call OPXtoOPX
 	ld a,(dim_x)
 	dec a
 	ld h,a
 	ld l,0
 	call FPtoOP1		; Not scaled
 	call OP1toOP2
-	bcall(_PopOP1)
+	ld hl,OP5
+	call OPXtoOP1
 	bcall(_FPDiv)
 	ld hl,OP1
 	ld de,deltaX_OS
 	call OPXtoOPX
 
 	; - max Y
-	ld hl,(max_y)
-	call FPtoOP1_scaled
-	ld hl,OP1
+	ld a,SETTINGS_AVOFF_MAXYOS
+	call LTS_GetPtr
 	ld de,maxY_OS
 	call OPXtoOPX
 	; - min Y
-	ld hl,(min_y)
-	call FPtoOP1_scaled
-	call OP1toOP2
+	ld a,SETTINGS_AVOFF_MINYOS
+	call LTS_GetPtr
+	call OPXtoOP2
 	ld hl,maxY_OS
 	call OPXtoOP1
 	bcall(_FPSub)
@@ -531,8 +532,7 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			; Update Y
 			bcall(_RclY)
 			ld hl,deltaY_OS
-			ld de,OP2
-			call OPXtoOPX
+			call OPXtoOP2
 			bcall(_FPSub)
 			bcall(_StoY)
 
@@ -547,8 +547,7 @@ Graph_Compute_EQ_Inner_SkipMinMax:
 			; Update X
 			bcall(_RclX)
 			ld hl,deltaX_OS
-			ld de,OP2
-			call OPXtoOPX
+			call OPXtoOP2
 			bcall(_FPSub)
 			bcall(_StoX)
 
