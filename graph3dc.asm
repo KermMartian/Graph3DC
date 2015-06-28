@@ -77,6 +77,7 @@
 ; [X] Implement self-adjusting scaling!
 ; [X] Move code to convert OS min/max X/Y to FP a function called separately, call from Window menu
 ;     [X] Actually make this the self-adjusting scaling routine 
+; [X] Catch/fix divby0 when trying to set small window bounds
 ; [ ] Make zoom in/out manipulate the OS values instead of FP values, then call function from previous bullet
 ;     [ ] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
 ; [ ] Adjust tracing to display OS-computed X and Y values for precision

@@ -157,55 +157,62 @@ ZoomStandard3D_SetDim:
 		pop hl
 	call OPXtoOPX
 	
-	; And now update the fixed-point version
+	; And now update the fixed-point version and mark the graph dirty
 	call windowAutoScale
-	
 	call DataChecksum_Reset
 	ret
 	
 ZoomIn3D:
-	ld a,SETTINGS_AVOFF_SCALEF
-	call LTS_GetPtr
-	push hl
-		ld a,(hl)
-		inc hl
-		ld h,(hl)
-		ld l,a
-		push hl
-			ld a,SETTINGS_AVOFF_ZOOMF
-			call LTS_GetWord
-			ex de,hl
-			pop bc
-		call signed_multbcde				; returns dehl
-		ld d,e
-		ld e,h
-		pop hl
-	ld (hl),e
-	inc hl
-	ld (hl),d
+	ld a,SETTINGS_AVOFF_ZOOMF
+	call LTS_GetWord
+	call FPtoOP1
+	bcall(_OP1toOP5)
+
+	call Zoom_GetCenter_X					; to OP1
+	call OP1toOP4
+	ld a,SETTINGS_AVOFF_MINXOS
+	call Mult_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+
+	ld a,SETTINGS_AVOFF_MAXXOS
+	call Mult_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	call Zoom_GetCenter_Y					; to OP1
+	call OP1toOP4
+	ld a,SETTINGS_AVOFF_MINYOS
+	call Mult_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	ld a,SETTINGS_AVOFF_MAXYOS
+	call Mult_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	; And now update the fixed-point version and mark the graph dirty
+	call windowAutoScale
 	call DataChecksum_Reset
 	ret
 	
 ZoomOut3D:
-	ld a,SETTINGS_AVOFF_SCALEF
-	call LTS_GetPtr
-	push hl
-		ld b,(hl)
-		inc hl
-		ld h,(hl)
-		ld c,0
-		push hl
-			push bc
-				ld a,SETTINGS_AVOFF_ZOOMF
-				call LTS_GetWord
-				ex de,hl
-				pop bc
-			pop af
-		call signed_divabcde			; abc/de -> abc remainder hl
-		pop hl
-	ld (hl),c
-	inc hl
-	ld (hl),b
+	ld a,SETTINGS_AVOFF_ZOOMF
+	call LTS_GetWord
+	call FPtoOP1
+	bcall(_OP1toOP5)
+
+	call Zoom_GetCenter_X					; to OP1
+	call OP1toOP4
+	ld a,SETTINGS_AVOFF_MINXOS
+	call Div_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+
+	ld a,SETTINGS_AVOFF_MAXXOS
+	call Div_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	call Zoom_GetCenter_Y					; to OP1
+	call OP1toOP4
+	ld a,SETTINGS_AVOFF_MINYOS
+	call Div_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	ld a,SETTINGS_AVOFF_MAXYOS
+	call Div_PtedReal_ByOP4OP5			; OP4 = center, OP5 = scale
+	
+	; And now update the fixed-point version and mark the graph dirty
+	call windowAutoScale
 	call DataChecksum_Reset
 	ret
 	
@@ -213,13 +220,37 @@ PostZoomContextSwitch:
 	bcall(_MenCatRet)
 	bjump(_JForceGraphNoKey)
 
-ZOOM_MENU_CHOICES	.equ 3
-ZoomMenuTable:
-	.db 1	;how many headers?
-	.db ZOOM_MENU_CHOICES 	;how many choices under 1st header?
-	.db 5Eh	;string table entry for "ZOOM"
-ZoomMenuTable_Entries:
-	.db 0,kZIn
-	.db 0,kZOut	;these are 2-byte keypresses of each entry
-	.db 0,kStd
-ZoomMenuTableEnd:
+Zoom_GetCenter_X:
+	call GetWindow_MinXMaxX
+	jr Zoom_GetCenter
+Zoom_GetCenter_Y:
+	call GetWindow_MinYMaxY
+Zoom_GetCenter:
+	bcall(_FPAdd)
+	bcall(_TimesPt5)
+	ret
+
+Mult_PtedReal_ByOP4OP5:
+	call LTS_GetPtr
+	push hl
+		rst 20h
+		call OP4toOP2
+		bcall(_FPSub)						; Adjust for center
+		bcall(_OP5toOP2)
+		bcall(_FPMult)
+		jr PtedReal_ByOP4OP5_Finish
+	
+Div_PtedReal_ByOP4OP5:
+	call LTS_GetPtr
+	push hl
+		rst 20h
+		call OP4toOP2
+		bcall(_FPSub)						; Adjust for center
+		bcall(_OP5toOP2)
+		bcall(_FPDiv)
+PtedReal_ByOP4OP5_Finish:
+		call OP4toOP2
+		bcall(_FPAdd)
+		pop de
+	jp OP1toOPX							; Store back to AppVar
+	

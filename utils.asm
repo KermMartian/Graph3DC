@@ -1006,6 +1006,9 @@ SetSpeed:
 	ret
 
 ;--------------------------------------------------
+OP1toOPX:
+	ld hl,OP1
+	jr OPXtoOPX
 OP1toOP2:
 	ld hl,OP1
 	ld de,OP2

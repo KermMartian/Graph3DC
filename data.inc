@@ -282,3 +282,14 @@ MinXYDefault:
 	.db $80,$80,(DEFAULT_XY_MAX/INT_TO_8P8) * 16 + 0, 0, 0, 0, 0, 0, 0
 MaxXYDefault:
 	.db $00,$80,(DEFAULT_XY_MAX/INT_TO_8P8) * 16 + 0, 0, 0, 0, 0, 0, 0
+
+ZOOM_MENU_CHOICES	.equ 3
+ZoomMenuTable:
+	.db 1	;how many headers?
+	.db ZOOM_MENU_CHOICES 	;how many choices under 1st header?
+	.db 5Eh	;string table entry for "ZOOM"
+ZoomMenuTable_Entries:
+	.db 0,kZIn
+	.db 0,kZOut	;these are 2-byte keypresses of each entry
+	.db 0,kStd
+ZoomMenuTableEnd:

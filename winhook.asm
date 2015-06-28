@@ -219,9 +219,8 @@ windowAutoScale:
 	bcall(_FPSub)
 	call OP1toOP4
 	call GetWindow_MinYMaxY
-	bcall(_FPSub)
-	call OP4toOP2
 	bcall(_FPSub)							; Move Y span to OP1
+	call OP4toOP2
 	bcall(_CpOP1OP2)
 	jr z,windowAutoScale_UseY
 	jr nc,windowAutoScale_UseY
@@ -278,7 +277,7 @@ windowAutoScale_SetWindow_Loop:
 	ret
 	
 GetWindow_MinXMaxX:
-	ld a,SETTINGS_AVOFF_MINXOS				; Move X span to OP4
+	ld a,SETTINGS_AVOFF_MINXOS
 	call LTS_GetPtr
 	ld de,OP2
 	call OPXtoOPX
@@ -288,7 +287,7 @@ GetWindow_MinXMaxX:
 	ret
 
 GetWindow_MinYMaxY:
-	ld a,SETTINGS_AVOFF_MINYOS				; Move X span to OP4
+	ld a,SETTINGS_AVOFF_MINYOS
 	call LTS_GetPtr
 	ld de,OP2
 	call OPXtoOPX
