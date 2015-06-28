@@ -122,37 +122,39 @@ ZoomStandard3D:
 ZoomStandard3D_SetDim:
 	ld a,SETTINGS_AVOFF_XDIM
 	call LTS_GetPtr
-	ld (hl),b				; Offset 5:		DimX = maximum possible
+	ld (hl),b				; Offset 7:		DimX = maximum possible
 	inc hl
-	ld (hl),b				; Offset 6:		DimY = maximum possible
+	ld (hl),b				; Offset 8:		DimY = maximum possible
 	inc hl
-	ld de,1.00*INT_TO_8P8
+	ld de,DEFAULT_XY_SCALEF
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 7:		ScaleFactor = 1
+	ld (hl),d				; Offset 9:		ScaleFactor = 1
 	inc hl
-	ld de,0.75*INT_TO_8P8
+	ld de,DEFAULT_XY_ZOOMF
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 9:		ZoomFactor = 0.75
+	ld (hl),d				; Offset 11:		ZoomFactor = 0.75
 	inc hl
 	ld de,DEFAULT_XY_MIN
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 11:	MinX = default
+	ld (hl),d				; Offset 13:	MinX = default
 	inc hl
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 13:	MinY = default
+	ld (hl),d				; Offset 15:	MinY = default
+	inc hl
+	inc hl					; Offset 17:	Skip MinZ
 	inc hl
 	ld de,DEFAULT_XY_MAX
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 15:	MaxX = default
+	ld (hl),d				; Offset 19:	MaxX = default
 	inc hl
 	ld (hl),e
 	inc hl
-	ld (hl),d				; Offset 17:	MaxY = default
+	ld (hl),d				; Offset 21:	MaxY = default
 	call DataChecksum_Reset
 	ret
 	

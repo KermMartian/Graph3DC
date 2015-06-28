@@ -59,7 +59,7 @@
 ; [X] Fix explanation display when Z= scrolls -> Moved to top of window
 ; [X] Test interactions with programs -> Allows programs to use Y= mode even when Z= mode is enabled for the user
 ; ------v----New items----v------
-; [ ] Deal with split-screen flag.
+; [X] Deal with split-screen flag.
 ;     [X] Fix invalidating graph on zoom menu items (move the _resets) and Y= editing
 ;     [X] Adjust MapFactorY and/or MapFactorX for splitscreen modes?
 ;     [X] Test in splitscreen mode, including -F-o-r-m-a-t-, -W-i-n-d-o-w-, -Z-o-o-m-, -Y-=-, -G-r-a-p-h-
@@ -67,12 +67,17 @@
 ;     [X] Fix redisplay of homescreen in 3D splitscreen mode
 ;     [X] set grfSChanged when switching 2D<>3D modes in splitscreen mode
 ;     [X] Replicate and fix freeze after switching split mode without enabling 3D mode
-;     [-] Test and correct glitchiness of graph after Catalog -> cannot replicate
-;     [ ] Fix re-rendering 3D graph in splitscreen mode when leaving menus
+;     [X] Test and correct glitchiness of graph after Catalog -> repaired, due to using AppVar when RAM swapped out
+;     [X] Fix re-rendering 3D graph in splitscreen mode when leaving menus
+; [X] Fix bounds when no equations enabled -> create fake min/max Z
+; [X] Fix display of graphs not centered on (0,0,0) (rotation already works properly) -> current work manipulates cx/y/z
+; [X] Don't force rotation around z=0 -> store computed Z bounds in appvar for use, including for cz?
+; [X] Re-fix label erase
+; [X] Test graph-table mode and adjust accordingly. Implement table mode? -> No. But catch it?
 ; [ ] Implement self-adjusting scaling!
+; [ ] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Test graph-table mode and adjust accordingly. Implement table mode?
 ; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
 ; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
@@ -242,8 +247,11 @@ temp3	.equ plotSScreen
 
 #define DEFAULT_XY_RES MAX_XY_RES
 #define DEFAULT_XY_RES_HI MAX_XY_RES_HI
-#define DEFAULT_XY_MIN $F800
-#define DEFAULT_XY_MAX $0800
+
+#define DEFAULT_XY_MIN    $F800
+#define DEFAULT_XY_MAX    $0800
+#define DEFAULT_XY_SCALEF $0100
+#define DEFAULT_XY_ZOOMF  $00C0
 
 #define AXES_BOUND_COORDS 23
 #define AXES_BOUND_PAIRS_AXES 9
@@ -293,23 +301,28 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_ZOOMF	11				;2 bytes
 #define SETTINGS_AVOFF_MINX		13				;2 bytes
 #define SETTINGS_AVOFF_MINY		15				;2 bytes
-#define SETTINGS_AVOFF_MAXX		17				;2 bytes
-#define SETTINGS_AVOFF_MAXY		19				;2 bytes
-#define SETTINGS_HOOKBACK_WIN	21				;4 bytes  - WindowHook backup
-#define SETTINGS_HOOKBACK_YEQU	25				;4 bytes  - YEquHook backup
-#define SETTINGS_HOOKBACK_CUR	29				;4 bytes  - CursorHook backup
-#define SETTINGS_MONVECBACK		33				;13 bytes - Monitor vector backup
-#define SETTINGS_HOOKBACK_APP	46				;4 bytes  - AppChangeHook backup
-#define SETTINGS_HOOKBACK_MENU	50				;4 bytes  - MenuHook backup
-#define SETTINGS_HOOKBACK_REGR	54				;4 bytes  - GraphHook backup
-#define SETTINGS_HOOKBACK_KEY	58				;4 bytes  - KeyHook backup
-#define SETTINGS_HOOKBACK_REDISP 62				;4 bytes  - cxRedispHook backup
-#define SETTINGS_HOOKBACK_XXXX	66				;4 bytes  - NOT USED backup
+#define SETTINGS_AVOFF_MINZ		17				;2 bytes
+#define SETTINGS_AVOFF_MAXX		19				;2 bytes
+#define SETTINGS_AVOFF_MAXY		21				;2 bytes
+#define SETTINGS_AVOFF_MAXZ		23				;2 bytes
+#define SETTINGS_HOOKBACK_WIN	25				;4 bytes  - WindowHook backup
+#define SETTINGS_HOOKBACK_YEQU	29				;4 bytes  - YEquHook backup
+#define SETTINGS_HOOKBACK_CUR	33				;4 bytes  - CursorHook backup
+#define SETTINGS_MONVECBACK		37				;13 bytes - Monitor vector backup
+#define SETTINGS_HOOKBACK_APP	50				;4 bytes  - AppChangeHook backup
+#define SETTINGS_HOOKBACK_MENU	54				;4 bytes  - MenuHook backup
+#define SETTINGS_HOOKBACK_REGR	58				;4 bytes  - GraphHook backup
+#define SETTINGS_HOOKBACK_KEY	62				;4 bytes  - KeyHook backup
+#define SETTINGS_HOOKBACK_REDISP 66				;4 bytes  - cxRedispHook backup
 #define SETTINGS_AVOFF_MAXEQS	70				;1 byte
 #define SETTINGS_AVOFF_TRACE	71				;1 byte   - 1 if tracing, 0 otherwise
 #define SETTINGS_AVOFF_LABEL	72				;1 byte 
 #define SETTINGS_AVOFF_CXCUR	73				;1 byte   - current context, used for when we need to rename the current mode
 #define SETTINGS_AVOFF_CHKSM	74				;2 bytes: checksum of data on trash RAM page
+#define SETTINGS_AVOFF_MINXOS	76				;9 bytes
+#define SETTINGS_AVOFF_MAXXOS	85				;9 bytes
+#define SETTINGS_AVOFF_MINYOS	94				;9 bytes
+#define SETTINGS_AVOFF_MAXYOS	103				;9 bytes
 
 ; Used for the menu table
 #define MT_TEXT		0
@@ -801,6 +814,8 @@ appChangeHook_CheckGraph:
 				cp kTrace
 				jr z,appChangeHook_GoGraph
 				dec b
+				cp kTable
+				jr z,appChangeHook_GoGraph			; No Table context in 3D mode
 				cp kGraph
 				jr nz,appChangeHook_CheckFormat
 appChangeHook_GoGraph:

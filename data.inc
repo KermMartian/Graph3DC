@@ -86,6 +86,16 @@ Window_Field_Table:
 	.db SETTINGS_AVOFF_YDIM
 	.db SETTINGS_AVOFF_ZOOMF
 	
+Window_Field_Table_OS:
+	.db SETTINGS_AVOFF_MINXOS
+	.db SETTINGS_AVOFF_MAXXOS
+	.db -1
+	.db SETTINGS_AVOFF_MINYOS
+	.db SETTINGS_AVOFF_MAXYOS
+	.db -1
+	.db -1
+
+	
 AppIcon:
 	.db 2									;Icon type: 16x16, 4-bit color
 	.db $ff,$ff,$a5,$34,$a4,$83,$b5,$68,$7c,$c4,$8b,$cb,$3c,$a5,$9a,$6f

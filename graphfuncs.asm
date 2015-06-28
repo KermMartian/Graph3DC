@@ -32,6 +32,11 @@ Graph_Setup:
 	ld d,(hl)
 	ld (min_y),de
 	inc hl
+	ld e,(hl)				; Offset SETTINGS_AVOFF_MINZ
+	inc hl
+	ld d,(hl)
+	ld (val_min_z),de
+	inc hl
 	ld e,(hl)				; Offset SETTINGS_AVOFF_MAXX
 	inc hl
 	ld d,(hl)
@@ -41,6 +46,11 @@ Graph_Setup:
 	inc hl
 	ld d,(hl)
 	ld (max_y),de
+	inc hl
+	ld e,(hl)				; Offset SETTINGS_AVOFF_MAXZ
+	inc hl
+	ld d,(hl)
+	ld (val_max_z),de
 	xor a
 	ld (ateq),a
 
@@ -69,6 +79,33 @@ Graph_Setup:
 	ld a,SETTINGS_AVOFF_MAXEQS
 	call LTS_GetByte
 	ld (maxeqs),a
+
+	; Compute costx/y/z, sintx/y/z, cx, cy, and cz
+	ld hl,(max_x)
+	ld de,(min_x)
+	call addhlde_fp
+	ex de,hl
+	ld bc,0.5*INT_TO_8P8
+	call signed_multbcde_fp
+	ld (cx),de				;cx = (max_x + min_x)/2
+	ld (ex),de
+
+	ld hl,(max_y)
+	ld de,(min_y)
+	call addhlde_fp
+	ex de,hl
+	ld bc,0.5*INT_TO_8P8
+	call signed_multbcde_fp
+	ld (cy),de				;cy = (max_y + min_y)/2
+	ld (ey),de
+	
+	ld hl,(val_max_z)
+	ld de,(val_min_z)
+	call addhlde_fp
+	ex de,hl
+	ld bc,0.5*INT_TO_8P8
+	call signed_multbcde_fp
+	ld (cz),de				;cz = (max_z + min_z)/2
 
 	; Load screen constants
 Graph_Setup_SetFactors:
@@ -593,8 +630,8 @@ Graph_Compute_EQ_Next:
 	ei
 	call ResetColors
 	call DisableTextColors
-	call TrashRAM_SwapIn
 	
+Graph_Compute_XBounds:
 	; Set up the axes and bounding box arrays here
 	ld hl,(max_x)
 	push hl
@@ -619,6 +656,7 @@ Graph_Compute_EQ_Next:
 	call addhlde_fp
 	ld (sup_max_x),hl
 
+Graph_Compute_YBounds:
 	ld hl,(max_y)
 	push hl
 		ld de,(min_y)
@@ -644,7 +682,34 @@ Graph_Compute_EQ_Next:
 	call addhlde_fp
 	ld (sup_max_y),hl
 
-	ld hl,(val_max_z)
+Graph_Compute_ZBounds:
+	ld a,(counteqs)
+	or a
+	jr nz,Graph_Compute_ZBounds_HaveEqs
+	ld hl,(max_x)
+	ld de,(min_x)
+	call subhlde_fp				; to hl
+	ex de,hl
+	ld bc,0.5*INT_TO_8P8
+	call signed_multbcde_fp
+	ex de,hl
+	ld (val_max_z),hl
+	call negate_hl
+	ld (val_min_z),hl
+Graph_Compute_ZBounds_HaveEqs:
+	ld a,SETTINGS_AVOFF_MINZ
+	call LTS_GetPtr
+	ld de,(val_min_z)
+	ld (hl),e
+	inc hl
+	ld (hl),d
+	ld a,SETTINGS_AVOFF_MAXZ
+	call LTS_GetPtr
+	ld de,(val_max_z)
+	ld (hl),e
+	inc hl
+	ld (hl),d
+	ex de,hl
 	push hl
 		ld de,(val_min_z)
 		call subhlde_fp
@@ -666,6 +731,9 @@ Graph_Compute_EQ_Next:
 
 	ld hl,$0000
 	ld (val_zero),hl
+
+	; Now we need to manipulate things on our "trash" RAM page again.
+	call TrashRAM_SwapIn
 
 	ld b,AXES_BOUND_COORDS
 	ld hl,AxesBoundsX
@@ -963,6 +1031,14 @@ Graph_Compute_EQ_Error_DoError:
 Graph_Rerotate:
 	call TrashRAM_SwapIn						; NB: CAN'T CALL DCSE ROUTINES UNTIL SWAPOUT!
 	
+	ld hl,(val_max_z)
+	ld de,(val_min_z)
+	call addhlde_fp
+	ex de,hl
+	ld bc,0.5*INT_TO_8P8
+	call signed_multbcde_fp
+	ld (cz),de				;cz = (max_z + min_z)/2
+
 	; Time to handle the headache of rotation
 	ld hl,(alpha)
 	ld a,h
@@ -977,32 +1053,6 @@ Graph_Rerotate:
 #endif
 	jp z,SkipRotate
 	; Alpha, beta, and/or gamma are non-zero, so do some rotation
-
-	; Compute costx/y/z, sintx/y/z, cx, cy, and cz
-	ld hl,(max_x)
-	ld de,(min_x)
-	call addhlde_fp
-	ld c,0
-	ld a,h
-	ld b,l
-	ld de,FP_2
-	call signed_divabcde			; returns result in abc (but a.bc/d.e = ab.c)
-	ld (cx),bc				;cx = (max_x + min_x)/2
-	ld (ex),bc
-
-	ld hl,(max_y)
-	ld de,(min_y)
-	call addhlde_fp
-	ld c,0
-	ld a,h
-	ld b,l
-	ld de,FP_2
-	call signed_divabcde			; returns result in abc (but a.bc/d.e = ab.c)
-	ld (cy),bc				;cy = (max_y + min_y)/2
-	ld (ey),bc
-	
-	ld hl,0
-	ld (cz),hl				;cz = 0.f
 	
 	ld hl,(alpha)
 	push hl
@@ -1094,9 +1144,6 @@ Graph_Redraw:
 	call TrashRAM_SwapIn						; NB: CAN'T CALL TI-OS ROUTINES UNTIL SWAPOUT!
 
 	; Calculate camera position
-	ld hl,$0000
-	ld (cx),hl
-	ld (cy),hl
 	ld hl,(cam_radius)
 	call negate_hl
 	ld (cz),hl
@@ -1120,6 +1167,7 @@ Graph_Redraw:
 	ld b,AXES_BOUND_COORDS
 	call Map_B_Points
 	
+	call ResetGraphFGColor			; set foreground color from background color
 	ld a,$80
 	call RenderAxisLabels			; Render labels behind graph
 	xor a							; erasemode = 0 = don't erase
@@ -1899,7 +1947,6 @@ RenderAxisLabels:
 	ret z
 	push bc
 		call DisplayOrg				; Fix org mode and window
-		call ResetGraphFGColor			; set foreground color from background color
 		pop bc
 
 	ld b,3
