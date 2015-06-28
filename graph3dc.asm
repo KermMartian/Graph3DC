@@ -82,7 +82,7 @@
 ;     [X] Fix zoom in/out to work with non-zero centers, then call the self-adjusting scaling function
 ; [X] Adjust tracing to display OS-computed X and Y values for precision
 ; [X] Fix trace cursor in status area
-; [ ] Fix bad erasing when quitting Trace mode. Also manifests itself as axes-over-graph in splitscreen mode.
+; [X] Fix bad erasing when quitting Trace mode. Also manifests itself as axes-over-graph in splitscreen mode.
 ; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.

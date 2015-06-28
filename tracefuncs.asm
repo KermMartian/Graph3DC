@@ -245,6 +245,7 @@ EraseTraceCoords:
 	ld ix,trace_coord_back
 	call DrawSprite_16Bit
 	call TraceCoordBackRAM_SwapOut
+	call DisplayOrg
 	ei
 	ret
 
