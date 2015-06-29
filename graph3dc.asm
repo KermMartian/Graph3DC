@@ -83,7 +83,8 @@
 ; [X] Adjust tracing to display OS-computed X and Y values for precision
 ; [X] Fix trace cursor in status area
 ; [X] Fix bad erasing when quitting Trace mode. Also manifests itself as axes-over-graph in splitscreen mode.
-; [ ] Fix context-switching out of Format menu (context-change hook getting wrong value) -> stack level...?
+; [X] Fix context-switching out of Format menu and Trace context (context-change hook getting wrong value) -> stack level...?
+;     - It seems that for the TI-84+CSE's NewContext0, both a and b must be set to the new context. Bleh.
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
 ; [ ] Test interaction between Transform and G3DC in all menus

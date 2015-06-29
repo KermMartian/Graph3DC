@@ -209,6 +209,7 @@ KeyHook_NotClear:
 	jr nc,KeyHook_OtherForceCmd
 	ld sp,(onSP)
 	; a still contains key -> new context to load
+	ld b,a
 	bcall(_NewContext0)
 	xor a
 	bjump(_SendKpress)
@@ -248,9 +249,6 @@ GraphKeyHook_Trace_Trace_Display:
 	call cxRedisp_3DGraph_PostInitTrace
 	ret
 GraphKeyHook_Trace_NotTrace:
-	cp kClear
-	jp z,GraphKeyHook_Graph_RetQuit
-
 	push af
 		call DrawTraceCursor
 		pop af
