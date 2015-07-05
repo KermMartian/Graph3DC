@@ -1,4 +1,4 @@
-MenuHook:				;aka ZoomHook
+MenuHook:				;aka MenuHook
 	.db $83
 	cp a				;set zero flag
 	push hl
@@ -6,7 +6,7 @@ MenuHook:				;aka ZoomHook
 		call HookChainer
 	ret nz							;other hook said to do something /non-standard/
 	or a
-	jr nz,ZoomHook_Not0
+	jr nz,MenuHook_Not0
 
 	ld a,(menuCurrent)
 	cp mZoom3D
@@ -21,46 +21,81 @@ MenuHook:				;aka ZoomHook
 		jp ZoomStandard3D
 
 MenuHook_NotSelected3D:
-	ld a,(menuCurrent)						; On the second iteration through, with b=0,
-	cp mZoom								; set our custom stuff
-	jr nz,ZoomHook_RetZSet
-
 	call LTS_CacheAV
 	ld a,SETTINGS_AVOFF_MODE
 	call LTS_GetByte
 	or a
-	jr z,ZoomHook_RetZSet					; Don't trigger our menu if 3D mode is not on
-	
-	call DisplayAppTitle
+	jp z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+
+	ld a,(menuCurrent)						; On the second iteration through, with b=0,
+	ld hl,CalcMenuTable
+	ld bc,CalcMenuTableEnd-CalcMenuTable
+	cp mCalculate
+	jr z,MenuHook_SetTable
+
 	ld hl,ZoomMenuTable
-	ld de,RAMCode
 	ld bc,ZoomMenuTableEnd-ZoomMenuTable
+	cp mZoom								; set our custom stuff
+	jr nz,MenuHook_RetZSet
+
+MenuHook_SetTable:
+	push hl
+		push bc
+			call DisplayAppTitle
+			pop bc
+		pop hl
+	ld de,RAMCode
 	push de
 		ldir
 		pop hl
-ZoomHook_RetZReset:
+MenuHook_RetZReset:
 	or $ff
 	ret
-
-ZoomHook_Not0:
+	
+MenuHook_Not0:
 	dec a
-	jr nz,ZoomHook_Not1
+	jr nz,MenuHook_Not1
 	ld a,(menuCurrent)
 	cp mZoom
-	jr nz,ZoomHook_RetZSet
+	jr nz,MenuHook_RetZSet
 	ld a,mZoom3D
 	ld (menuCurrent),a
-	jr ZoomHook_RetZSet
-ZoomHook_Not1:
-	sub 2
-	jr nz,ZoomHook_Not3
+	jr MenuHook_RetZSet
+MenuHook_Not1:
+	dec a
+	jr nz,MenuHook_Not2
+	
+	; Custom menu title for Calc menu
+	ld a,(menuCurrent)
+	cp mCalculate
+	jr nz,MenuHook_RetZSet					; Only for calculate menu
+	ld a,c
+	or a
+	jr nz,MenuHook_RetZSet					; Only for first header
+
+	push hl									; Current title pointer
+		call LTS_CacheAV
+		ld a,SETTINGS_AVOFF_MODE
+		call LTS_GetByte
+		or a
+		pop hl
+	jr z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+	
+	ld hl,sCalcDisabled
+	call PutsApp
+	bcall(_EraseEOL)
+	jr MenuHook_RetZReset
+	
+MenuHook_Not2:
+	dec a
+	jr nz,MenuHook_Not3
 	; The following code re-draws the graph if we left the graph via a menu
 	; and are now returning to the graph
 	ld a,b
 	or a
-	jr nz,ZoomHook_RetZSet
+	jr nz,MenuHook_RetZSet
 	bit grfSplit,(iy+sgrFlags)
-	jr z,ZoomHook_2_NoSplit
+	jr z,MenuHook_2_NoSplit
 
 	call LTS_CacheAV
 	; Back up the current cxRedispHook
@@ -79,11 +114,11 @@ ZoomHook_Not1:
 	ld hl,SplitscreenRedispHook
 	bcall(_SetcxRedispHook)
 
-ZoomHook_RetZSet:
+MenuHook_RetZSet:
 	cp a
 	ret
 
-ZoomHook_2_NoSplit:
+MenuHook_2_NoSplit:
 	push bc
 		call LTS_CacheAV
 		ld a,SETTINGS_AVOFF_MODE
@@ -94,7 +129,7 @@ ZoomHook_2_NoSplit:
 	ld a,SETTINGS_AVOFF_CXCUR
 	call LTS_GetByte
 	cp kGraph
-	jr nz,ZoomHook_RetZSet	; Current context is not our graph context
+	jr nz,MenuHook_RetZSet	; Current context is not our graph context
 
 	;bcall(_MenCatRet)		; This has too many side effects; replaced with the following
 	xor a
@@ -108,7 +143,11 @@ ZoomHook_2_NoSplit:
 	call GraphRedisp
 	bjump(_Mon)
 
-ZoomHook_Not3:
+MenuHook_Not3:
+	dec a
+	jr nz,MenuHook_Not4
+	
+MenuHook_Not4:
 	cp a
 	ret
 

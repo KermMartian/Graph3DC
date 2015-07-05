@@ -293,3 +293,15 @@ ZoomMenuTable_Entries:
 	.db 0,kZOut	;these are 2-byte keypresses of each entry
 	.db 0,kStd
 ZoomMenuTableEnd:
+
+CALC_MENU_CHOICES	.equ 1
+CalcMenuTable:
+	.db 1	;how many headers?
+	.db CALC_MENU_CHOICES 	;how many choices under 1st header?
+	.db 5Eh	;string table entry for "ZOOM"
+CalcMenuTable_Entries:
+	.db 0,kQuit
+CalcMenuTableEnd:
+
+sCalcDisabled:
+	.db "Calc Menu Disabled",0
