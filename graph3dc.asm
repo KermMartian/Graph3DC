@@ -88,9 +88,11 @@
 ; [X] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
 ;     - Not ideal (Calc moves you to the homescreen with a ? preceding an entry), but nothing crashes
 ;     - [X] Disable calc menu? -> Calc menu is now replaced by a custom menu in 3D mode
-; [ ] Fix Y= hook causing bad style selection cursor
+; [X] Fix Y= hook causing bad style selection cursor
+; [X] Fix memory error after Y= menu? / related to Syntax error in Graph? -> OP1 getting destroyed chaining hooks
+; [ ] Fix Y bounds set by ZStandard
+; [ ] Fix run indicator appearing within graph area while drawing "full"-screen 3D graph
 ; [ ] Test interaction between Transform and G3DC in all menus
-;     - [ ] Fix memory error after Y= menu? / related to Syntax error in Graph?
 ; [ ] Fix LCD panic when drawing splitscreen graph - run indicator?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Lots of beta-testing!
@@ -993,9 +995,11 @@ HookChainer:
 			push af
 				push bc
 					push hl
+						call OP1SwapOP6_Safe
 						ld hl,AVName
 						rst 20h
 						bcall(_chkfindsym)
+						call OP1SwapOP6_Safe
 						pop hl
 					jr c,HookChainer_Continue
 					inc hl
@@ -1013,9 +1017,9 @@ HookChainer:
 					ld h,d
 					ld l,e
 					inc de
-					ld (Op1),de
+					ld (OP6),de
 					ld a,b
-					ld (Op1+2),a
+					ld (OP6+2),a
 					B_CALL(_GetBytePaged)
 					ld a,b
 					cp 83h
@@ -1025,7 +1029,7 @@ HookChainer:
 			pop de
 		pop hl
 	ex (sp),hl
-	bcall(OP1 | (1 << 14))
+	bcall(OP6 | (1 << 14))
 	ret
 
 HookChainer_Continue:

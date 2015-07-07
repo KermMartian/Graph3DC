@@ -2,17 +2,17 @@ SplitscreenGraphHook:
 	.db $83
 	cp a									;set zero flag
 	push af
+		bit grfSplit,(iy+sgrFlags)			; We're enabled, but splitscreen mode is off. Why
+		jr z,SplitscreenGraphHook_Chain		; would this fire? Eh, let's be safe.
 		push bc
 			push hl
-				call LTS_CacheAV
+				call LTS_CacheAV			; Already preserves OP1
 				ld a,SETTINGS_AVOFF_MODE
 				call LTS_GetByte
 				pop hl
 			pop bc
 		or a
 		jr z,SplitscreenGraphHook_Chain
-		bit grfSplit,(iy+sgrFlags)			; We're enabled, but splitscreen mode is off. Why
-		jr z,SplitscreenGraphHook_Chain		; would this fire? Eh, let's be safe.
 		pop af
 	or a
 	jr z,SplitscreenGraphHook_Redraw
@@ -23,7 +23,7 @@ SplitscreenGraphHook_Chain:
 		pop af
 	push hl
 		ld hl,SETTINGS_HOOKBACK_REGR
-		call HookChainer						; Let the other hook decide
+		call HookChainer						; Let the other hook decide [now preserves OP1
 	ret
 
 SplitscreenRedispHook:

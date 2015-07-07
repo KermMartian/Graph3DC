@@ -36,12 +36,7 @@ LTS_SetWord:
 	ret
 	
 LTS_CacheAV:
-	; Save OP1
-	ld hl,OP1
-	ld de,OP6
-	ld bc,9
-	ldir					; OP1 -> Op6
-	
+	call OP1SwapOP6_Safe		; Save OP1
 	ld hl,AVName
 	rst 20h
 	bcall(_chkfindsym)
@@ -51,15 +46,13 @@ LTS_CacheAV_Exists:
 	or a
 	jr z,LTS_CacheAV_Exists_RAM
 	bcall(_Arc_Unarc)
-	ld hl,OP6
-	rst 20h					; OP6 -> OP1
+	call OP1SwapOP6_Safe		; Restore OP1
 	jr LTS_CacheAV
 LTS_CacheAV_Exists_RAM:
 	inc de
 	inc de
 	ld (lts_av),de
-	ld hl,OP6
-	rst 20h					; OP6 -> OP1
+	call OP1SwapOP6_Safe		; Restore OP1
 	ret
 
 LTS_CreateAV:

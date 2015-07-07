@@ -181,7 +181,8 @@ ZoomStandard3D_SetDim:
 		call OPXtoOPX
 		ld a,SETTINGS_AVOFF_MINYOS
 		call LTS_GetPtr
-		pop hl
+		pop de
+	ex de,hl
 	call OPXtoOPX
 	
 	; Set maximum X and Y OS values...
@@ -193,7 +194,8 @@ ZoomStandard3D_SetDim:
 		call OPXtoOPX
 		ld a,SETTINGS_AVOFF_MAXYOS
 		call LTS_GetPtr
-		pop hl
+		pop de
+	ex de,hl
 	call OPXtoOPX
 	
 	; And now update the fixed-point version and mark the graph dirty

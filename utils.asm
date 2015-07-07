@@ -1051,6 +1051,27 @@ OPXtoOPX:
 	ldir
 	ret
 
+OP1SwapOP6_Safe:
+	push hl
+		push de
+			push bc
+				push af
+					ld hl,OP1
+					ld de,OP6
+					ld bc,9
+OP1SwapOP6_Safe_Loop:
+					ld a,(de)
+					ldi
+					dec hl
+					ld (hl),a
+					inc hl
+					jp pe,OP1SwapOP6_Safe_Loop
+					pop af
+				pop bc
+			pop de
+		pop hl
+	ret
+
 DisplayAppTitle:
 	ld hl,AppTitle
 DisplayAppTitleText:
