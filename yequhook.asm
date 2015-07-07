@@ -16,6 +16,9 @@ YEquHook_Partial:
 					pop de
 				pop hl
 			pop bc
+			
+			set 1,(iy+$3a)					;These two are required to make the graph style cursor work
+			set 7,(iy+$52)					;in the normal Y= menu
 		pop af
 	cp 3
 	jr nz,YEquHook_Partial_Not3
@@ -100,7 +103,14 @@ YEquHook_SpecialPlotLine_Setup:
 	call GetCurrentPage
 	ld hl,yEquCursorHook
 	bcall(_SetCursorHook)
+
+	; Deal with flags
 	set saIndicForce,(iy+extraIndicFlags)	;Make 2nd/alpha appear in status area
+	res 0,(iy+$13)
+	res 2,(iy+$44)					; Because this is what Transform does!
+	res 1,(iy+$3a)					;Undo what we did to make the graph style cursor
+	res 7,(iy+$52)					;work properly
+	
 	jr YEquHook_ResZRet
 
 YEquHook_SetZRet:

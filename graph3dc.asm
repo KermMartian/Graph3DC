@@ -85,12 +85,14 @@
 ; [X] Fix bad erasing when quitting Trace mode. Also manifests itself as axes-over-graph in splitscreen mode.
 ; [X] Fix context-switching out of Format menu and Trace context (context-change hook getting wrong value) -> stack level...?
 ;     - It seems that for the TI-84+CSE's NewContext0, both a and b must be set to the new context. Bleh.
-; [/] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
+; [X] Test what happens when you select Draw, Calc, and Table menu items when 3D mode is enabled.
 ;     - Not ideal (Calc moves you to the homescreen with a ? preceding an entry), but nothing crashes
-;     - [ ] Fix memory error after Calc menu?
+;     - [X] Disable calc menu? -> Calc menu is now replaced by a custom menu in 3D mode
+; [ ] Fix Y= hook causing bad style selection cursor
+; [ ] Test interaction between Transform and G3DC in all menus
+;     - [ ] Fix memory error after Y= menu? / related to Syntax error in Graph?
 ; [ ] Fix LCD panic when drawing splitscreen graph - run indicator?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Test interaction between Transform and G3DC in all menus
 ; [ ] Lots of beta-testing!
 
 .echo "-----------------------\n"
