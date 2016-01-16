@@ -1019,12 +1019,13 @@ Graph_Compute_EQ_Error_NotBreak:
 	jp nz,Graph_Compute_EQ_Inner_SwapAndStore
 Graph_Compute_EQ_Error_DoError:
 	push af
-		ld a,tUn
+		ld a,tY1
 		ld (parseVar + 2),a
 		call TrashRAM_SwapOut
 		call ResetColors					; Otherwise the error title will be unreadable
 		call DisableTextColors				; Be kind.
 		pop af
+	and $7f
 	bjump(_JError)
 ;-----------------------------------
 Graph_Rerotate:

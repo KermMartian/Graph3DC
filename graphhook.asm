@@ -53,6 +53,7 @@ SplitscreenGraphHook_Redraw:
 			bcallz(_RstrShadow)
 			
 			; The actual drawing process starts here
+			call SetRunIndic_Friendly
 			call SetSpeedFast
 			call Graph_Setup
 			call Graph_Clear_Screen			; calls DisplayNormal
@@ -84,10 +85,13 @@ SplitscreenGraphHook_Redraw_NoRecompute:
 			call Graph_Redraw
 
 			call DisplayOrg
+			call SetRunIndic_Normal
 			res graphDraw,(iy+graphFlags)
 			call DataChecksum_Set
 			pop af
 		call nz,SwapZYFuncs_In
+		call ResetColors
+		call DisableTextColors
 		pop hl
 	ld (curRow),hl
 	or $ff
@@ -113,9 +117,11 @@ cxRedisp_3DGraph:
 	call Graph_Rerotate
 
 cxRedisp_3DGraph_NoRecompute:
+	call SetRunIndic_Friendly
 	call DisplayNormal
 	call Graph_Redraw
 	call DisplayOrg
+	call SetRunIndic_Normal
 	call DataChecksum_Set
 
 	; Check if tracing is enabled and we have enabled equations
@@ -141,6 +147,7 @@ cxRedisp_3DGraph_PostInitGraph:
 cxPutaway_3DGraph:
 	res saIndicForce,(iy+extraIndicFlags)	; Do not force 2nd/alpha to appear in status area
 	ret
+
 ;-----------------------------------
 cxMain_3DGraph:
 	push bc
@@ -189,11 +196,13 @@ GraphKeyHook_Graph_StoreBeta:
 	ld (beta),de
 GraphKeyHook_Graph_Rerotate:
 	call SetSpeedFast
+	call SetRunIndic_Friendly
 	call DisplayNormal
 	call Graph_Erase
 	call Graph_Rerotate
 	call Graph_Redraw
 	call DisplayOrg
+	call SetRunIndic_Normal
 	call DataChecksum_Set
 	jr GraphKeyHook_NoKey
 
@@ -295,10 +304,12 @@ GraphKeyHook_ZoomOut:
 	bjump(_JForceGraphNoKey)
 ;-----------------------------------
 GraphRedisp:
+	call SetRunIndic_Friendly
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
 	call Graph_Redraw
-	jp DisplayOrg
+	call DisplayOrg
+	jp SetRunIndic_Normal
 ;-----------------------------------
 GraphCxVectors:
 	.dw cxMain_3DGraph

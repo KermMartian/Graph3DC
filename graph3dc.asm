@@ -90,10 +90,10 @@
 ;     - [X] Disable calc menu? -> Calc menu is now replaced by a custom menu in 3D mode
 ; [X] Fix Y= hook causing bad style selection cursor
 ; [X] Fix memory error after Y= menu? / related to Syntax error in Graph? -> OP1 getting destroyed chaining hooks
-; [ ] Fix Y bounds set by ZStandard
-; [ ] Fix run indicator appearing within graph area while drawing "full"-screen 3D graph
+; [X] Fix Y bounds set by ZStandard -> traced to bad OPX to OPX copy
+; [X] Fix run indicator appearing within graph area while drawing "full"-screen 3D graph
+; [X] Fix LCD panic when drawing splitscreen graph - run indicator?
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [ ] Fix LCD panic when drawing splitscreen graph - run indicator?
 ; [ ] Make 2:Goto in syntax error go to proper equation somehow
 ; [ ] Lots of beta-testing!
 
@@ -429,6 +429,7 @@ _GetBytePaged	.equ	_LoadBIndPaged
 tZ1				.equ	tY0+1
 extraIndicFlags	.equ	$3E
 saIndicForce	.equ	2
+indicFlags		.equ 	12h	;Indicator flags
 .list
 
 ;-----------------------------------
@@ -756,7 +757,7 @@ appChangeHook:
 				push bc
 					call LTS_CacheAV
 					call CleanTempHooks					; Clean up Yequ, Zoom, Window hooks, if they're ours
-					call SwapZYFuncs_Out				; MAke sure all the equations are properly sorted
+					call SwapZYFuncs_Out				; Make sure all the equations are properly sorted
 					call setWindow_OS					; In some places we modify the window
 
 					ld a,SETTINGS_AVOFF_MODE

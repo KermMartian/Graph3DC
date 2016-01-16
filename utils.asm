@@ -1168,3 +1168,13 @@ DataChecksum_Reset:
 	inc hl
 	ld (hl),d
 	ret
+	
+SetRunIndic_Friendly:
+	set indicOnly,(iy+indicFlags)
+	res indicRun,(iy+indicFlags)
+	ret
+	
+SetRunIndic_Normal:
+	res indicOnly,(iy+indicFlags)
+	set indicRun,(iy+indicFlags)
+	ret
