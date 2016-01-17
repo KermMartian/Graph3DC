@@ -110,7 +110,6 @@ cxRedisp_3DGraph:
 	call LTS_CacheAV
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
-	call SetGraphCursorHook
 
 	call DataChecksum_Check
 	jr z,cxRedisp_3DGraph_NoRecompute
@@ -119,6 +118,7 @@ cxRedisp_3DGraph:
 
 cxRedisp_3DGraph_NoRecompute:
 	call SetRunIndic_Friendly
+	call SetGraphCursorHook
 	call DisplayNormal
 	call Graph_Redraw
 	call DisplayOrg

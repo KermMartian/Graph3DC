@@ -431,6 +431,7 @@ tZ1				.equ	tY0+1
 extraIndicFlags	.equ	$3E
 saIndicForce	.equ	2
 indicFlags		.equ 	12h	;Indicator flags
+cxError			.equ	$fb
 .list
 
 ;-----------------------------------
@@ -752,6 +753,8 @@ appChangeHook:
 	push af
 		push bc
 			push hl
+				cp cxError
+				jr z,AppChangeHook_Done
 			
 				; Get the current mode so we know if we can start triggering our stuff
 				ld c,a										; b is current app, c is new app

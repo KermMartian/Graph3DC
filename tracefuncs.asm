@@ -303,6 +303,7 @@ VPutsTokenizedString_Finish:
 	ret
 
 DrawTraceEquation:
+	ld de,0
 	bcall(_ClearAppTitle)
 	call SetupStatusText
 	call SetTextColors

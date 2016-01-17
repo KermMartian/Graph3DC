@@ -1076,6 +1076,7 @@ DisplayAppTitle:
 	ld hl,AppTitle
 DisplayAppTitleText:
 	push hl
+		ld de,0
 		bcall(_ClearAppTitle)
 		pop hl
 	call SetupStatusText
