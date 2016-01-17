@@ -110,6 +110,7 @@ cxRedisp_3DGraph:
 	call LTS_CacheAV
 	call SetSpeedFast
 	call Graph_Clear_Screen			; calls DisplayNormal
+	call SetGraphCursorHook
 
 	call DataChecksum_Check
 	jr z,cxRedisp_3DGraph_NoRecompute
@@ -140,12 +141,21 @@ cxRedisp_3DGraph_PostInitTrace:
 	call DrawTraceEquation
 	call DrawTraceCoords
 	jp DrawTraceCursor
-	
+
 cxRedisp_3DGraph_PostInitGraph:
 	jp DisplayAppTitle
 
 cxPutaway_3DGraph:
 	res saIndicForce,(iy+extraIndicFlags)	; Do not force 2nd/alpha to appear in status area
+	ret
+
+SetGraphCursorHook:
+	; Set up new cursorhook
+	call GetCurrentPage
+	ld hl,graphCursorHook
+	bcall(_SetCursorHook)
+	res curLock,(iy+curFlags)				; Don't lock it off
+	set curAble,(iy+curFlags)				; Flash that cursor
 	ret
 
 ;-----------------------------------
@@ -184,6 +194,13 @@ GraphKeyHook_Graph:
 	ld a,SETTINGS_AVOFF_TRACE
 	call LTS_GetPtr
 	ld (hl),1
+
+	ld a,SETTINGS_AVOFF_MENUTRIG
+	call LTS_GetByte				; Had a menu been triggered?
+	or a
+	jr z,GraphKeyHook_Graph_Trace_PostInit
+	call GraphRedisp
+GraphKeyHook_Graph_Trace_PostInit:	
 	call cxRedisp_3DGraph_PostInitTrace
 	jp GraphKeyHook_NoKey								; No key
 GraphKeyHook_Graph_RetQuit:
@@ -306,6 +323,7 @@ GraphKeyHook_ZoomOut:
 GraphRedisp:
 	call SetRunIndic_Friendly
 	call SetSpeedFast
+	call SetGraphCursorHook
 	call Graph_Clear_Screen			; calls DisplayNormal
 	call Graph_Redraw
 	call DisplayOrg

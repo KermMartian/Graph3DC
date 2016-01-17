@@ -338,6 +338,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_MAXXOS	85				;9 bytes
 #define SETTINGS_AVOFF_MINYOS	94				;9 bytes
 #define SETTINGS_AVOFF_MAXYOS	103				;9 bytes
+#define SETTINGS_AVOFF_MENUTRIG 112				;1 byte   - Whether a menu was triggered
 
 ; Used for the menu table
 #define MT_TEXT		0
@@ -759,6 +760,11 @@ appChangeHook:
 					call CleanTempHooks					; Clean up Yequ, Zoom, Window hooks, if they're ours
 					call SwapZYFuncs_Out				; Make sure all the equations are properly sorted
 					call setWindow_OS					; In some places we modify the window
+					xor a
+					call SetCXCur
+					ld a,SETTINGS_AVOFF_MENUTRIG
+					call LTS_GetPtr
+					ld (hl),0
 
 					ld a,SETTINGS_AVOFF_MODE
 					call LTS_GetByte
@@ -863,11 +869,6 @@ appChangeHook_GoGraph:
 				and $ff^(1 << cursorHookActive)
 				ld (de),a
 				
-				; Set up new cursorhook
-				call GetCurrentPage
-				ld hl,graphCursorHook
-				bcall(_SetCursorHook)
-
 				; Compute graph and display initial version
 				call cxInit_3DGraph
 				bcall(_Redisp)

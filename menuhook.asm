@@ -8,6 +8,11 @@ MenuHook:				;aka MenuHook
 	or a
 	jr nz,MenuHook_Not0
 
+	call LTS_CacheAV
+	ld a,SETTINGS_AVOFF_MENUTRIG
+	call LTS_GetPtr
+	ld (hl),1						;A menu has triggered, so things are dirty.		 
+	
 	ld a,(menuCurrent)
 	cp mZoom3D
 	jr nz,MenuHook_NotSelected3D
@@ -21,7 +26,6 @@ MenuHook:				;aka MenuHook
 		jp ZoomStandard3D
 
 MenuHook_NotSelected3D:
-	call LTS_CacheAV
 	ld a,SETTINGS_AVOFF_MODE
 	call LTS_GetByte
 	or a
@@ -36,7 +40,7 @@ MenuHook_NotSelected3D:
 	ld hl,ZoomMenuTable
 	ld bc,ZoomMenuTableEnd-ZoomMenuTable
 	cp mZoom								; set our custom stuff
-	jr nz,MenuHook_RetZSet
+	jp nz,MenuHook_RetZSet
 
 MenuHook_SetTable:
 	push hl
@@ -91,38 +95,55 @@ MenuHook_Not2:
 	jr nz,MenuHook_Not3
 	; The following code re-draws the graph if we left the graph via a menu
 	; and are now returning to the graph
-	ld a,b
-	or a
-	jr nz,MenuHook_RetZSet
-	bit grfSplit,(iy+sgrFlags)
-	jr z,MenuHook_2_NoSplit
+	push bc
+		push de
+			ld a,b
+			or a
+			jr z,MenuHook_3_CheckRedispHook
 
-	call LTS_CacheAV
-	; Back up the current cxRedispHook
-	ld a,SETTINGS_HOOKBACK_REDISP
-	call LTS_GetPtr						;to hl
-	ld de,cxRedispHookPtr
-	ex de,hl
-	ld bc,3
-	ldir
-	ld a,(flags + hookflags4)			; contains MenuHookActive
-	and 1 << cxRedispHookActive
-	ld (de),a
+			cp kExtApps					; Going to an external app?
+			jr nz,MenuHook_3_RetZSet
+			
+			; Restore previous context
+			ld a,SETTINGS_AVOFF_CXCUR
+			call LTS_GetPtr
+			ld a,(hl)
+			ld (cxCurApp),a
+			jr MenuHook_3_RetZSet
+MenuHook_3_CheckRedispHook:
+			bit grfSplit,(iy+sgrFlags)
+			jr z,MenuHook_3_NoSplit
+MenuHook_3_SetRedispHook:
+			call LTS_CacheAV
+			; Back up the current cxRedispHook
+			ld a,SETTINGS_HOOKBACK_REDISP
+			call LTS_GetPtr						;to hl
+			ld de,cxRedispHookPtr
+			ex de,hl
+			ld bc,3
+			ldir
+			ld a,(flags + hookflags4)			; contains MenuHookActive
+			and 1 << cxRedispHookActive
+			ld (de),a
 
-	; Set up a temporary cxRedispHook
-	call GetCurrentPage
-	ld hl,SplitscreenRedispHook
-	bcall(_SetcxRedispHook)
+			; Set up a temporary cxRedispHook
+			call GetCurrentPage
+			ld hl,SplitscreenRedispHook
+			bcall(_SetcxRedispHook)
+			
+MenuHook_3_RetZSet:
+			pop de
+		pop bc
 
 MenuHook_RetZSet:
 	cp a
 	ret
 
-MenuHook_2_NoSplit:
-	push bc
-		call LTS_CacheAV
-		ld a,SETTINGS_AVOFF_MODE
-		call LTS_GetByte
+MenuHook_3_NoSplit:
+			call LTS_CacheAV
+			ld a,SETTINGS_AVOFF_MODE
+			call LTS_GetByte
+			pop de
 		pop bc
 	or a
 	ret z					; 3D mode is not enabled
@@ -140,7 +161,8 @@ MenuHook_2_NoSplit:
 	inc hl
 	ld (hl),a
 	
-	call GraphRedisp
+MenuHook_3_Redisp:
+	call cxRedisp_3DGraph
 	bjump(_Mon)
 
 MenuHook_Not3:
