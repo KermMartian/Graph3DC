@@ -1019,13 +1019,20 @@ Graph_Compute_EQ_Error_NotBreak:
 	jp nz,Graph_Compute_EQ_Inner_SwapAndStore
 Graph_Compute_EQ_Error_DoError:
 	push af
-				; Set up new Yequ hook
-				call GetCurrentPage
-				ld hl,yEquHook
-				bcall(_SetYEquHook)
-				
-		ld a,tY2
-		ld (parseVar + 2),a
+	
+		; The following code is necessary to make sure that 2: Goto works
+		; properly. We need our Yequ hook active, because the AppChangeHook isn't fired
+		; when the OS goes from the error context to the Y= context.
+		call GetCurrentPage
+		ld hl,yEquHook
+		bcall(_SetYEquHook)
+		ld hl,parseVar + 2
+		ld a,(hl)
+		sub tZ1-tY1
+		ld (hl),a
+		;ld a,tY2
+		;ld (parseVar + 2),a
+		
 		call TrashRAM_SwapOut
 		call ResetColors					; Otherwise the error title will be unreadable
 		call DisableTextColors				; Be kind.

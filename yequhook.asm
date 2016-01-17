@@ -133,10 +133,10 @@ YEquHook_Full:
 
 	call InitZEquations
 	call DisplayAppTitle
-	ld hl,BaseZVarName
-	ld de,parseVar
-	ld bc,3
-	ldir
+;	ld hl,BaseZVarName
+;	ld de,parseVar
+;	ld bc,3
+;	ldir
 	jr YEquHook_SetZRet
 
 yEquHook_Not0:
