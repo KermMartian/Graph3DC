@@ -339,6 +339,8 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_MINYOS	94				;9 bytes
 #define SETTINGS_AVOFF_MAXYOS	103				;9 bytes
 #define SETTINGS_AVOFF_MENUTRIG 112				;1 byte   - Whether a menu was triggered
+#define SETTINGS_AVOFF_ERRGOTOPEND 113			;1 byte   - Whether an ERR:GOTO goto is pending.
+#define SETTINGS_AVOFF_PENDEQ	114				;1 byte   - Which equation is pending
 
 ; Used for the menu table
 #define MT_TEXT		0
@@ -407,6 +409,9 @@ MenuHookActive	.equ	6
 GraphHookActive	.equ	3
 traceHookActive	.equ	0					; In hookflags4
 cxRedispHookActive .equ 5					; In hookflags4
+cmdFlags	.equ	0Ch
+cmdGoto			equ 7		;1=currently in the middle of a 2:Goto for an error
+getCSCHookActive	equ 0		;1 = GetCSC hook active (in hookflags2)
 
 ; OS Equates - Other
 APIFlg			equ 28h
@@ -753,6 +758,8 @@ appChangeHook:
 	push af
 		push bc
 			push hl
+				; The following is necessary to avoid erasing our Yequ hooks when going from
+				; the Graph or Trace contexts, through an Error context, back to Y=.
 				cp cxError
 				jr z,AppChangeHook_Done
 			
@@ -933,11 +940,11 @@ CleanTempHooks:
 	;ld hl,flags + hookflags3
 	;call DisableHook
 	
-	;RawKeyHook
-	ld de,RawKeyHookPtr+2
-	ld bc,($ff^(1 << RawKeyHookActive))*256 + SETTINGS_HOOKBACK_KEY
-	ld hl,flags + hookflags2
-	call DisableHook
+	;GetKeyHook
+	;ld de,GetKeyHookPtr+2
+	;ld bc,($ff^(1 << GetCSCHookActive))*256 + SETTINGS_HOOKBACK_KEY
+	;ld hl,flags + hookflags2
+	;call DisableHook
 
 	;CursorHook
 	ld de,CursorHookPtr+2

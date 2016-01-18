@@ -137,6 +137,34 @@ YEquHook_Full:
 ;	ld de,parseVar
 ;	ld bc,3
 ;	ldir
+
+	ld a,SETTINGS_AVOFF_ERRGOTOPEND
+	call LTS_GetPtr
+	xor a
+	bit cmdGoto,(iy+cmdFlags)
+	jr z,yEquHook_0_NoGoto
+	
+	push hl
+		; Back up the current RawKeyHook
+		ld a,SETTINGS_HOOKBACK_KEY
+		call LTS_GetPtr						;to hl
+		ld de,GetKeyHookPtr
+		ex de,hl
+		ld bc,3
+		ldir
+		ld a,(flags + hookflags2)			; contains rawKeyHookActive
+		and 1 << GetCSCHookActive
+		ld (de),a
+
+		call GetCurrentPage
+		ld hl,yEquKeyHook
+		bcall(_SetGetKeyHook)		; Used to handle ERR:GOTO ourselves.
+		pop hl
+	
+	ld a,1
+yEquHook_0_NoGoto:
+	ld (hl),a
+	res cmdGoto,(iy+cmdFlags)
 	jr YEquHook_SetZRet
 
 yEquHook_Not0:
@@ -245,6 +273,48 @@ Yequ_DisplayExplanation:
 	ld hl,sYequExplain
 	call vPutsApp
 	call ResetColors
+	ret
+;--------------------------------------------
+yEquKeyHook:
+	.db $83
+	push af
+		push bc
+			; Do we even have something to be working on?
+			call LTS_CacheAV
+			ld a,SETTINGS_AVOFF_ERRGOTOPEND
+			call LTS_GetPtr						;to hl
+			ld a,(hl)
+			or a
+			jr z,yEquKeyHook_RemoveSelf
+			
+			inc hl								;to SETTINGS_AVOFF_PENDEQ
+			ld a,(hl)
+			dec hl
+			ld b,a
+			ld a,(EQS + 7)
+			cp b
+			jr z,yEquKeyHook_RemoveSelf
+	
+			; Do in fact need to send a key.
+			pop bc
+		pop af
+	ld a,kDown
+	cp a
+	ret
+yEquKeyHook_RemoveSelf:
+			ld (hl),0				; No more pending stuff.
+			
+			;GetKeyHook
+			ld de,GetKeyHookPtr+2
+			ld bc,($ff^(1 << GetCSCHookActive))*256 + SETTINGS_HOOKBACK_KEY
+			ld hl,flags + hookflags2
+			call DisableHook
+			pop bc
+		pop af
+	cp $1b
+	ret nz
+	ld a,b
+	or a							; NZ if there's a real keycode. Whatever.
 	ret
 ;--------------------------------------------
 ClearPlotLine:

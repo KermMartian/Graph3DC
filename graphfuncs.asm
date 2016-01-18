@@ -1025,13 +1025,13 @@ Graph_Compute_EQ_Error_DoError:
 		; when the OS goes from the error context to the Y= context.
 		call GetCurrentPage
 		ld hl,yEquHook
-		bcall(_SetYEquHook)
-		ld hl,parseVar + 2
-		ld a,(hl)
+		bcall(_SetYEquHook)					; AppChangeHook for Graph mode should have saved others'.
+
+		ld a,SETTINGS_AVOFF_PENDEQ
+		call LTS_GetPtr
+		ld a,(parseVar + 2)
 		sub tZ1-tY1
 		ld (hl),a
-		;ld a,tY2
-		;ld (parseVar + 2),a
 		
 		call TrashRAM_SwapOut
 		call ResetColors					; Otherwise the error title will be unreadable
