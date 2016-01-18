@@ -257,7 +257,7 @@ temp3	.equ plotSScreen
 #define COLOR_BLACK $0000
 #define COLOR_STATUS $52AA
 #define WINDOW_ID_OFFSET $80
-#define MIN_FILL_ERASE_SEGMENTS 600
+#define MIN_FILL_ERASE_SEGMENTS 300
 #define PROGRESS_WIDTH 17
 
 #define DEFAULT_XY_RES MAX_XY_RES
@@ -703,6 +703,10 @@ ProgramStart_DoAndQuit:
 	jr z,ProgramStart_Quit
 
 ProgramStart_Uninstall:
+	ld a,SETTINGS_AVOFF_MODE
+	call LTS_GetPtr
+	ld (hl),0
+
 	; Restore the AppChangeHook area
 	ld de,appChangeHookPtr+2
 	ld bc,($ff^(1 << appChangeHookActive))*256 + SETTINGS_HOOKBACK_APP
