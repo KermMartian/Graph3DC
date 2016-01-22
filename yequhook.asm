@@ -318,28 +318,42 @@ yEquKeyHook_RemoveSelf:
 	ret
 ;--------------------------------------------
 ClearPlotLine:
-	ld hl,(CurRow)
-	push hl
-		ld hl,curCol
-		
-		ld hl,curRow
-		ld a,(winTop)
-		dec a
-		ld (hl),a				; curRow
-		inc hl
-		ld (hl),0				; curCol
-		ld de,COLOR_WHITE
-		ld (textFGcolor),de
-		ld (textBGcolor),de
-		ld b,26
+	call DisplayNormal
+	call Full_Window
+
+	ld a,(winTop)
+	dec a
+	ld de,21
+	call multade				; quotient in hl
+	ld de,PXLMINY_WITHSTATUS
+	add hl,de
+	ld a,$20
+	call Write_Display_Control
+	ld a,$50
+	call Write_Display_Control
+	ld hl,0
+	ld a,$21				; set write X coordinate
+	call Write_Display_Control
+	ld a,$52
+	call Write_Display_Control
+	
+	ld	a,$22
+	out	($10),a
+	out	($10),a
+
+	ld de,320*21*2/4
+	ld hl,(bgcolor)
+	ld c,$11
 ClearPlotLine_Loop:
-		ld a,' '
-		push bc
-			bcall(_putc)
-			pop bc
-		djnz ClearPlotLine_Loop
-		pop hl
-	ld (CurRow),hl
+	out	(c),h
+	out	(c),l
+	out	(c),h
+	out	(c),l
+	dec	de
+	ld a,d
+	or e
+	jr nz,ClearPlotLine_Loop
+	call DisplayOrg
 	ret
 ;--------------------------------------------
 cxMain_PlotLine:
@@ -427,7 +441,7 @@ cxMain_PlotLine_3DMode:
 	ld (hl),a
 	push af
 		call nz,SwapZYFuncs_In
-	pop af
+		pop af
 	call z,SwapZYFuncs_Out
 	call SetFunctionMode
 	set grfSChanged,(iy+sgrFlags)

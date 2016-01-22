@@ -142,7 +142,7 @@ Graph_Setup_SetFactors:
 Graph_Clear_Screen:	
 	call DisplayNormal
 	call Full_Window
-	ld a,PXLMINY_WITHSTATUS
+	ld a,$20
 	ld hl,(PxlMinY)		; set write Y coordinate
 	call Write_Display_Control
 	ld a,$50
@@ -165,17 +165,17 @@ Graph_Clear_Screen:
 	ld de,320*2/4
 	call multade
 	ex de,hl
-	ld  hl,(bgcolor)
+	ld hl,(bgcolor)
 	ld c,$11
-blank_loop:
+Graph_Clear_Screen_Loop:
 	out	(c),h
 	out	(c),l
 	out	(c),h
 	out	(c),l
 	dec	de
-	ld	a,d
-	or	e
-	jr	nz,blank_loop
+	ld a,d
+	or e
+	jr nz,Graph_Clear_Screen_Loop
 	call DisplayOrg
 	ret
 
