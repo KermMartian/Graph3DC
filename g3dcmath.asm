@@ -322,6 +322,7 @@ DivHLC_Loop:
 
 ; Input: signed 8.8 fixed-point number in HL
 ; Output: signed OS real in OP1
+; Destroys: registers, OP1, and OP2, at least
 FPtoOP1:
 	push hl
 		call abshl_fp

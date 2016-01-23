@@ -329,14 +329,17 @@ Graph_Recolor_SetupProgress:
 	call OPXtoOP1
 	bcall(_FPSub)
 	; - delta Y
-	bcall(_PushOP1)
+	ld hl,OP1
+	ld de,OP5
+	call OPXtoOPX
 	ld a,(dim_Y)
 	dec a
 	ld h,a
 	ld l,0
 	call FPtoOP1		; Not scaled
 	call OP1toOP2
-	bcall(_PopOP1)
+	ld hl,OP5
+	call OPXtoOP1
 	bcall(_FPDiv)
 	ld hl,OP1
 	ld de,deltaY_OS
