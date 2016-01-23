@@ -59,11 +59,15 @@ MenuHook_RetZReset:
 MenuHook_Not0:
 	dec a
 	jr nz,MenuHook_Not1
-	ld a,(menuCurrent)
-	cp mZoom
-	jr nz,MenuHook_RetZSet
+
+	ld a,SETTINGS_AVOFF_MODE
+	call LTS_GetByte
+	or a
+	jr z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+
 	ld a,mZoom3D
 	ld (menuCurrent),a
+
 	jr MenuHook_RetZSet
 MenuHook_Not1:
 	dec a
