@@ -317,32 +317,60 @@ yEquKeyHook_RemoveSelf:
 	or a							; NZ if there's a real keycode. Whatever.
 	ret
 ;--------------------------------------------
-ClearPlotLine:
-	call DisplayNormal
-	call Full_Window
-
+ClearYEquationArea:
 	ld a,(winTop)
 	dec a
 	ld de,21
 	call multade				; quotient in hl
 	ld de,PXLMINY_WITHSTATUS
 	add hl,de
-	ld a,$20
-	call Write_Display_Control
-	ld a,$50
-	call Write_Display_Control
-	ld hl,0
-	ld a,$21				; set write X coordinate
-	call Write_Display_Control
-	ld a,$52
-	call Write_Display_Control
+	push hl
+		ld a,239
+		sub l
+		ld de,320*2/4
+		call multade
+		ex de,hl
+		pop hl
+	jr FillAreaWhite
 	
-	ld	a,$22
-	out	($10),a
-	out	($10),a
-
+ClearPlotLine:
+	ld a,(winTop)
+	dec a
+	ld de,21
+	call multade				; quotient in hl
+	ld de,PXLMINY_WITHSTATUS
+	add hl,de
 	ld de,320*21*2/4
-	ld hl,(bgcolor)
+	; hl = minimum Y coordinate
+	; de = number of 2-pixel pairs
+	; ix = color
+FillAreaWhite:
+	ld ix,$ffff
+
+FillAreaColor:
+	di
+	push ix
+		push de
+			push hl
+				call DisplayNormal
+				call Full_Window
+				pop hl
+			ld a,$20
+			call Write_Display_Control
+			ld a,$50
+			call Write_Display_Control
+
+			ld hl,0
+			ld a,$21				; set write X coordinate
+			call Write_Display_Control
+			ld a,$52
+			call Write_Display_Control
+			
+			ld	a,$22
+			out	($10),a
+			out	($10),a
+			pop de				; Number of loop iterations
+		pop hl
 	ld c,$11
 ClearPlotLine_Loop:
 	out	(c),h
@@ -354,6 +382,7 @@ ClearPlotLine_Loop:
 	or e
 	jr nz,ClearPlotLine_Loop
 	call DisplayOrg
+	ei
 	ret
 ;--------------------------------------------
 cxMain_PlotLine:
@@ -444,6 +473,7 @@ cxMain_PlotLine_3DMode:
 		pop af
 	call z,SwapZYFuncs_Out
 	call SetFunctionMode
+	call ClearYEquationArea
 	set grfSChanged,(iy+sgrFlags)
 	jr cxMain_PlotLine_RestoreApp
 cxMain_PlotLine_NotEnter:
