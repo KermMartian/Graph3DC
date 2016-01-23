@@ -5,10 +5,18 @@ MenuHook:				;aka MenuHook
 		ld hl,SETTINGS_HOOKBACK_MENU
 		call HookChainer
 	ret nz							;other hook said to do something /non-standard/
+	push af
+		push bc
+			push de
+				push hl
+					call LTS_CacheAv
+					pop hl
+				pop de
+			pop bc
+		pop af
 	or a
 	jr nz,MenuHook_Not0
 
-	call LTS_CacheAV
 	ld a,SETTINGS_AVOFF_MENUTRIG
 	call LTS_GetPtr
 	ld (hl),1						;A menu has triggered, so things are dirty.		 
@@ -73,6 +81,13 @@ MenuHook_Not1:
 	dec a
 	jr nz,MenuHook_Not2
 	
+	ld a,SETTINGS_AVOFF_MODE
+	push hl
+		call LTS_GetByte
+		pop hl
+	or a
+	jr z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+
 	; Custom menu title for Calc menu
 	ld a,(menuCurrent)
 	cp mCalculate
@@ -99,6 +114,12 @@ MenuHook_Not2:
 	jr nz,MenuHook_Not3
 	; The following code re-draws the graph if we left the graph via a menu
 	; and are now returning to the graph
+
+	ld a,SETTINGS_AVOFF_MODE
+	call LTS_GetByte
+	or a
+	jr z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+
 	push bc
 		push de
 			ld a,b
@@ -170,10 +191,6 @@ MenuHook_3_Redisp:
 	bjump(_Mon)
 
 MenuHook_Not3:
-	dec a
-	jr nz,MenuHook_Not4
-	
-MenuHook_Not4:
 	cp a
 	ret
 
