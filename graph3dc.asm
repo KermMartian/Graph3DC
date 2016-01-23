@@ -753,7 +753,7 @@ ProgramStart_Install:
 
 ProgramStart_Quit:
 	; Cleanup/quit
-	call DisplayNormal
+	call DisplayOrg
 	bjump(_JForceCmdNoChar)
 
 ; b is current app, a is new app

@@ -56,10 +56,10 @@ SplitscreenGraphHook_Redraw:
 			call SetRunIndic_Friendly
 			call SetSpeedFast
 			call Graph_Setup
+			di
 			call Graph_Clear_Screen			; calls DisplayNormal
 			
 			; Draw the horizontal divider
-			di
 			push iy
 				ld hl,(PxlMaxY)
 				push hl
@@ -76,11 +76,13 @@ SplitscreenGraphHook_Redraw:
 				ld (PxlMaxY),hl
 				pop iy
 			
+			call DisplayOrg
 			call DataChecksum_Check
 			jr z,SplitscreenGraphHook_Redraw_NoRecompute
 			call Graph_Recompute
 			call Graph_Rerotate
 SplitscreenGraphHook_Redraw_NoRecompute:
+			di
 			call DisplayNormal
 			call Graph_Redraw
 
@@ -94,6 +96,7 @@ SplitscreenGraphHook_Redraw_NoRecompute:
 		call DisableTextColors
 		pop hl
 	ld (curRow),hl
+	ei
 	or $ff
 	ret
 
