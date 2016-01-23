@@ -341,6 +341,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_MENUTRIG 112				;1 byte   - Whether a menu was triggered
 #define SETTINGS_AVOFF_ERRGOTOPEND 113			;1 byte   - Whether an ERR:GOTO goto is pending.
 #define SETTINGS_AVOFF_PENDEQ	114				;1 byte   - Which equation is pending
+#define SETTINGS_AVOFF_ANGMODE	115				;1 byte   - Angle mode (0 = rad, 1 = deg)
 
 ; Used for the menu table
 #define MT_TEXT		0

@@ -1145,9 +1145,26 @@ DataChecksum_Set:
 	ld (hl),e
 	inc hl
 	ld (hl),d
+	ld a,SETTINGS_AVOFF_ANGMODE
+	call LTS_GetPtr
+	call TrigFlagToBit0
+	ld (hl),a							; 0 = Radian, 1 = Degree
+	ret
+
+TrigFlagToBit0:
+	ld a, (iy + trigFlags)
+	rrca
+	rrca								; Roll bit 2 into bit 0
+	and $01
 	ret
 
 DataChecksum_Check:
+	ld a,SETTINGS_AVOFF_ANGMODE
+	call LTS_GetByte
+	ld b,a
+	call TrigFlagToBit0
+	cp b
+	ret nz
 	call TrashRAM_SwapIn
 	ld hl,trash_ram_loc					;$C000
 	ld bc,trash_ram_fill				;<$4000 bytes
