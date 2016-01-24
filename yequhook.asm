@@ -75,7 +75,8 @@ YEquHook_Partial_PlotLineLoop_DoDisplay:
 	cp b
 	jr nz,YEquHook_Partial_PlotLineLoop
 	call ResetColors
-	or 1				; Reset Z flag
+	cp a
+	;or 1				; Reset Z flag
 	ret
 
 YEquHook_Partial_Not3:
@@ -322,8 +323,6 @@ ClearYEquationArea:
 	dec a
 	ld de,21
 	call multade				; quotient in hl
-	ld de,PXLMINY_WITHSTATUS
-	add hl,de
 	push hl
 		ld a,239
 		sub l
@@ -334,13 +333,42 @@ ClearYEquationArea:
 	jr FillAreaWhite
 	
 ClearPlotLine:
+	ld hl,ClearEraseTable
+	ld de,ramCode
+	ld bc,$28
+	ldir
+
 	ld a,(winTop)
 	dec a
 	ld de,21
 	call multade				; quotient in hl
+	
 	ld de,PXLMINY_WITHSTATUS
 	add hl,de
+	ld b,21/2
+ClearPlotLine_Loop:
+	push bc
+		push hl
+			ld a,l
+			ld hl,$ffff
+			ld de,ramCode
+			bcall(_EraseTwoRowsWithUserPattern)
+			pop hl
+		pop bc
+	inc hl
+	inc hl
+	djnz ClearPlotLine_Loop
+	ret
+	
+ClearEraseTable:
+	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+
+#ifdef COMMENTED_OUT	
 	ld de,320*21*2/4
+#endif
+
 	; hl = minimum Y coordinate
 	; de = number of 2-pixel pairs
 	; ix = color
@@ -349,39 +377,49 @@ FillAreaWhite:
 
 FillAreaColor:
 	di
-	push ix
-		push de
-			push hl
-				call DisplayNormal
-				call Full_Window
-				pop hl
-			ld a,$20
-			call Write_Display_Control
-			ld a,$50
-			call Write_Display_Control
+	push hl
+		push ix
+			push de
 
-			ld hl,0
-			ld a,$21				; set write X coordinate
-			call Write_Display_Control
-			ld a,$52
-			call Write_Display_Control
-			
-			ld	a,$22
-			out	($10),a
-			out	($10),a
-			pop de				; Number of loop iterations
+				;Compute the actual starting Y coordinate
+				ld de,PXLMINY_WITHSTATUS
+				add hl,de
+
+				push hl
+					call DisplayNormal
+					call Full_Window
+					pop hl
+				ld a,$20
+				call Write_Display_Control
+				ld a,$50
+				call Write_Display_Control
+
+				ld hl,0
+				ld a,$21				; set write X coordinate
+				call Write_Display_Control
+				ld a,$52
+				call Write_Display_Control
+				
+				ld	a,$22
+				out	($10),a
+				out	($10),a
+				pop de				; Number of loop iterations
+			pop hl
+		ld c,$11
+FillAreaColor_Loop:
+		out	(c),h
+		out	(c),l
+		out	(c),h
+		out	(c),l
+		dec	de
+		ld a,d
+		or e
+		jr nz,FillAreaColor_Loop
+		call DisplayOrg
+		
+	; Clear pixelShadow
 		pop hl
-	ld c,$11
-ClearPlotLine_Loop:
-	out	(c),h
-	out	(c),l
-	out	(c),h
-	out	(c),l
-	dec	de
-	ld a,d
-	or e
-	jr nz,ClearPlotLine_Loop
-	call DisplayOrg
+		; TODO
 	ei
 	ret
 ;--------------------------------------------
@@ -584,7 +622,7 @@ YEquHook_SetPenRow:
 	ld a,$24
 	bit grfSplit,(iy+sgrFlags)
 	jr z,YEquHook_SetPenRow_Set
-	ld a,$9e
+	ld a,$9c
 YEquHook_SetPenRow_Set:
 	ld (penrow),a
 	ret

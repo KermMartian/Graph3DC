@@ -417,16 +417,19 @@ getCSCHookActive	equ 0		;1 = GetCSC hook active (in hookflags2)
 ; OS Equates - Other
 APIFlg			equ 28h
 appAllowContext		equ 0           ;App wants context changes to happen
+_RstrShadow		.equ	$4570
+_DrawSplitDivider .equ	$4855
+_maybe_MonRestart .equ	$4fba
+_EraseTwoRowsWithOSPattern	.equ	$56AA
+_EraseTwoRowsWithUserPattern	.equ	$54AF
+_ClearAppTitle	.equ	$56B3		;5056h
 monQueue		.equ	$8669
 PlotEnabled1	.equ	$9812
 PlotEnabled2	.equ	$9824
 PlotEnabled3	.equ	$9836
 maybe_menuGraphicalID .equ	$9d82	;Not currently used
 menuButtonNum	.equ	$9d83
-_ClearAppTitle	.equ	$56B3		;5056h
-_RstrShadow		.equ	$4570
-_maybe_MonRestart .equ	$4fba
-_DrawSplitDivider .equ	$4855
+bufEraseMinY	.equ	$a011		;Used by EraseTwoRows
 mCalculate		.equ 	11h
 mZoom			.equ	04h
 mZoom3D			.equ	94h
@@ -698,7 +701,7 @@ ProgramStart_MainMenuLoop_Inner_NotDown:
 		jr nz,ProgramStart_Not2
 		ld a,b
 		cp 2
-		jr z,ProgramStart_Quit
+		jp z,ProgramStart_Quit
 		jr ProgramStart_Uninstall
 ProgramStart_Not2:
 		cp k3
