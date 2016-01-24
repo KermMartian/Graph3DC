@@ -71,10 +71,14 @@ MenuHook_Not0:
 	ld a,SETTINGS_AVOFF_MODE
 	call LTS_GetByte
 	or a
-	jr z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
+	jp z,MenuHook_RetZSet					; Don't trigger our menu if 3D mode is not on
 
-	ld a,mZoom3D
-	ld (menuCurrent),a
+	ld hl,menuCurrent
+	ld a,(hl)
+	cp mZoom
+	jr nz,MenuHook_RetZSet
+	
+	ld (hl),mZoom3D
 
 	jr MenuHook_RetZSet
 MenuHook_Not1:

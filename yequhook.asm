@@ -294,9 +294,15 @@ yEquKeyHook:
 			ld a,(hl)
 			dec hl
 			ld b,a
-			ld a,(EQS + 7)
+			ld a,(EQS + 6)						;maximum
+			or tY1
+			dec a
+			cp b								;if target is >= (EQS + 6), then abort
+			jr c,yEquKeyHook_RemoveSelf
+
+			ld a,(EQS + 7)						;a = current, b = target
 			cp b
-			jr z,yEquKeyHook_RemoveSelf
+			jr nc,yEquKeyHook_RemoveSelf		;if =, got to the right place; if <, overshot; don't do an infinite loop
 	
 			; Do in fact need to send a key.
 			pop bc
