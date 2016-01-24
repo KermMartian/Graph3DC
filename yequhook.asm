@@ -139,6 +139,8 @@ YEquHook_Full:
 ;	ld bc,3
 ;	ldir
 
+	set grfSChanged,(iy+sgrFlags)							; Prevent the OS from erasing our graph?
+
 	ld a,SETTINGS_AVOFF_ERRGOTOPEND
 	call LTS_GetPtr
 	xor a
