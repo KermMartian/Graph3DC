@@ -342,7 +342,7 @@ temp3	.equ plotSScreen
 #define SETTINGS_AVOFF_ERRGOTOPEND 113			;1 byte   - Whether an ERR:GOTO goto is pending.
 #define SETTINGS_AVOFF_PENDEQ	114				;1 byte   - Which equation is pending
 #define SETTINGS_AVOFF_ANGMODE	115				;1 byte   - Angle mode (0 = rad, 1 = deg)
-
+#define SETTINGS_AVOFF_ZEQUVALID 116			;1 byte   - Whether it's possible that Z= equs are valid
 ; Used for the menu table
 #define MT_TEXT		0
 #define MT_OPTION	1
@@ -819,7 +819,19 @@ appChangeHook:
 appChangeHook_NoSplitOverride:
 					pop bc
 				; b is current app, c is new app, a and d are mode
+				ld a,c
+				cp kGraph
+				jr nz,appChangeHook_NoTentativeValid
+				
+				push bc
+					push de
+						ld a,SETTINGS_AVOFF_ZEQUVALID		; Prevent splitscreen infinite loop
+						call LTS_GetPtr
+						ld (hl),1
+						pop de
+					pop bc
 
+appChangeHook_NoTentativeValid:
 				ld a,c
 				cp kYequ
 				jr nz,appChangeHook_CheckMode

@@ -37,9 +37,17 @@ CheckEnabled_Setup_Loop:
 			ld a,c
 			ld (OP1+2),a
 			rst 10h
-			ld a,0
+			ld a,0										; xor a would disturb flags
 			jr c,CheckEnabled_Setup_Loop_Store
 			bit 5,(hl)
+			jr z,CheckEnabled_Setup_Loop_Store
+			push hl
+				push bc
+					ld a,SETTINGS_AVOFF_ZEQUVALID		; Used to prevent splitscreen infinite loop
+					call LTS_GetByte
+					pop bc
+				pop hl
+			or a
 			jr z,CheckEnabled_Setup_Loop_Store
 			ld a,1
 			ld hl,counteqs

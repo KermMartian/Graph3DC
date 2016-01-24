@@ -372,6 +372,10 @@ Graph_Compute_EQ:
 		jp c,Graph_Compute_EQ_Next
 		bit 5,(hl)
 		jp z,Graph_Compute_EQ_Next
+		ld a,SETTINGS_AVOFF_ZEQUVALID		; Prevent splitscreen infinite loop
+		call LTS_GetByte
+		or a
+		jp z,Graph_Compute_EQ_Next
 
 		; Note! _PutC messes this up.
 		call TrashRAM_SwapOut
@@ -1028,6 +1032,10 @@ Graph_Compute_EQ_Error_DoError:
 		ld a,(parseVar + 2)
 		sub tZ1-tY1
 		ld (hl),a
+		
+		ld a,SETTINGS_AVOFF_ZEQUVALID		; Prevent splitscreen infinite loop
+		call LTS_GetPtr
+		ld (hl),0
 		
 		call TrashRAM_SwapOut
 		call ResetColors					; Otherwise the error title will be unreadable
