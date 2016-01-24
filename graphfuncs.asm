@@ -1023,13 +1023,6 @@ Graph_Compute_EQ_Error_NotBreak:
 Graph_Compute_EQ_Error_DoError:
 	push af
 	
-		; The following code is necessary to make sure that 2: Goto works
-		; properly. We need our Yequ hook active, because the AppChangeHook isn't fired
-		; when the OS goes from the error context to the Y= context.
-		call GetCurrentPage
-		ld hl,yEquHook
-		bcall(_SetYEquHook)					; AppChangeHook for Graph mode should have saved others'.
-
 		ld a,SETTINGS_AVOFF_PENDEQ
 		call LTS_GetPtr
 		ld a,(parseVar + 2)

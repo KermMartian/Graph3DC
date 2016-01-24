@@ -519,17 +519,37 @@ ProgramStart_HookBackupNoMenu:
 	jr z,ProgramStart_HookBackupNoRegraph
 
 	; Back up the current regraphHook
-	ld a,SETTINGS_HOOKBACK_MENU
-	call LTS_GetPtr						;to hl
-	ld de,regraphHookPtr
-	ex de,hl
-	ld bc,3
-	ldir
-	ld a,(flags + hookflags3)			; contains MenuHookActive
-	and 1 << regraphHookActive
-	ld (de),a
+	push bc
+		ld a,SETTINGS_HOOKBACK_MENU
+		call LTS_GetPtr						;to hl
+		ld de,regraphHookPtr
+		ex de,hl
+		ld bc,3
+		ldir
+		ld a,(flags + hookflags3)			; contains MenuHookActive
+		and 1 << regraphHookActive
+		ld (de),a
+		pop bc
 	
 ProgramStart_HookBackupNoRegraph:
+	ld a,(yEqualsHookPtr+2)
+	cp b
+	jr z,ProgramStart_HookBackupNoYequ
+
+	; Back up the current YequHook
+	push bc
+		ld a,SETTINGS_HOOKBACK_YEQU
+		call LTS_GetPtr						;to hl
+		ld de,yEqualsHookPtr
+		ex de,hl
+		ld bc,3
+		ldir
+		ld a,(flags + hookflags3)			; contains yEquHookActive
+		and 1 << yEquHookActive
+		ld (de),a
+		pop bc
+
+ProgramStart_HookBackupnoYequ:
 ProgramStart_HookBackupDone:
 	ld a,1
 ProgramStart_appInstalled:
@@ -671,7 +691,7 @@ ProgramStart_MainMenuLoop_Inner_NotUp:
 		jr ProgramStart_MainMenuLoop_OuterNoPopBC
 ProgramStart_MainMenuLoop_Inner_NotDown:
 		cp kClear
-		jr z,ProgramStart_Quit
+		jp z,ProgramStart_Quit
 		cp k1
 		jr z,ProgramStart_Install
 		cp k2
@@ -720,6 +740,12 @@ ProgramStart_Uninstall:
 	ld hl,flags + hookflags4
 	call DisableHook
 
+	; Restore the yEqualsHook area
+	ld de,yEqualsHookPtr+2
+	ld bc,($ff^(1 << yEquHookActive))*256 + SETTINGS_HOOKBACK_YEQU
+	ld hl,flags + hookflags3
+	call DisableHook
+
 	; Restore the reGraphHook area
 	ld de,reGraphHookPtr+2
 	ld bc,($ff^(1 << reGraphHookActive))*256 + SETTINGS_HOOKBACK_REGR
@@ -737,6 +763,11 @@ ProgramStart_Install:
 	ld hl,appChangeHook						;the ACTUAL appChange hook.
 	bcall(_SetAppChangeHook)
 
+	; Set up new Yequ hook
+	call GetCurrentPage
+	ld hl,yEquHook
+	bcall(_SetYEquHook)
+	
 	; Set up new menuHook
 	call GetCurrentPage
 	ld hl,MenuHook
@@ -763,11 +794,6 @@ appChangeHook:
 	push af
 		push bc
 			push hl
-				; The following is necessary to avoid erasing our Yequ hooks when going from
-				; the Graph or Trace contexts, through an Error context, back to Y=.
-				cp cxError
-				jr z,AppChangeHook_Done
-			
 				; Get the current mode so we know if we can start triggering our stuff
 				ld c,a										; b is current app, c is new app
 				push bc
@@ -796,21 +822,6 @@ appChangeHook_NoSplitOverride:
 				jr nz,appChangeHook_CheckMode
 				call SetCXCur
 
-				; Back up the current YequHook
-				ld a,SETTINGS_HOOKBACK_YEQU
-				call LTS_GetPtr						;to hl
-				ld de,yEqualsHookPtr
-				ex de,hl
-				ld bc,3
-				ldir
-				ld a,(flags + hookflags3)			; contains yEquHookActive
-				and 1 << yEquHookActive
-				ld (de),a
-				
-				; Set up new Yequ hook
-				call GetCurrentPage
-				ld hl,yEquHook
-				bcall(_SetYEquHook)
 appChangeHook_Done:
 				pop hl
 			pop bc
@@ -934,10 +945,10 @@ CleanTempHooks:
 	call DisableHook
 
 	;YEqualsHook
-	ld de,yEqualsHookPtr+2
-	ld bc,($ff^(1 << yEquHookActive))*256 + SETTINGS_HOOKBACK_YEQU
-	ld hl,flags + hookflags3
-	call DisableHook
+	;ld de,yEqualsHookPtr+2
+	;ld bc,($ff^(1 << yEquHookActive))*256 + SETTINGS_HOOKBACK_YEQU
+	;ld hl,flags + hookflags3
+	;call DisableHook
 
 	;GraphHook
 	;ld de,GraphHookPtr+2
