@@ -341,10 +341,6 @@ ClearYEquationArea:
 	jr FillAreaWhite
 	
 ClearPlotLine:
-	ld hl,ClearEraseTable
-	ld de,ramCode
-	ld bc,$28
-	ldir
 
 	ld a,(winTop)
 	dec a
@@ -359,7 +355,7 @@ ClearPlotLine_Loop:
 		push hl
 			ld a,l
 			ld hl,$ffff
-			ld de,ramCode
+			ld de,pixelShadow							; Assume first row of pixelShadow is a white line
 			bcall(_EraseTwoRowsWithUserPattern)
 			pop hl
 		pop bc
@@ -368,11 +364,6 @@ ClearPlotLine_Loop:
 	djnz ClearPlotLine_Loop
 	ret
 	
-ClearEraseTable:
-	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-	.db $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
-
 #ifdef COMMENTED_OUT	
 	ld de,320*21*2/4
 #endif

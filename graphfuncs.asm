@@ -1036,6 +1036,7 @@ Graph_Compute_EQ_Error_DoError:
 		ld a,SETTINGS_AVOFF_ZEQUVALID		; Prevent splitscreen infinite loop
 		call LTS_GetPtr
 		ld (hl),0
+		call DataChecksum_Reset
 		
 		call TrashRAM_SwapOut
 		call ResetColors					; Otherwise the error title will be unreadable

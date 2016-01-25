@@ -398,6 +398,7 @@ _ClrMenuHook	.equ	$506B
 ;_ClrGraphHook	.equ	$4F9F
 ;_SetTraceHook	.equ	$4FD8
 ;_ClrTraceHook	.equ	$4FDB
+pixelShadow		.equ	$8941
 appChangeHookPtr .equ	09E91h
 yEqualsHookPtr	.equ	09E79h
 MenuHookPtr		.equ	$9EA1

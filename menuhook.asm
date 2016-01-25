@@ -31,7 +31,11 @@ MenuHook:				;aka MenuHook
 		jp z,ZoomIn3D
 		dec a
 		jp z,ZoomOut3D
-		jp ZoomStandard3D
+		dec a
+		jp z,ZoomStandard3D
+		pop hl
+	ld a,mZoom
+	ld (menuCurrent),a
 
 MenuHook_NotSelected3D:
 	ld a,SETTINGS_AVOFF_MODE
