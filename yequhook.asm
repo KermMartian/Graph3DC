@@ -62,13 +62,11 @@ YEquHook_Partial_PlotLineLoop_AddXPos:
 				pop hl
 			or a
 			jr z,YEquHook_Partial_PlotLineLoop_DoDisplay
-			pop de
-		push bc
-			ld c,e
-			ld b,d
+			set textInverse,(iy+textFlags)
 YEquHook_Partial_PlotLineLoop_DoDisplay:
 			pop de
 		call VPutsColored
+		res textInverse,(iy+textFlags)
 		pop bc
 	inc b
 	ld a,4
@@ -571,10 +569,7 @@ yEquCursorHook_DisplayBlock:
 				pop hl
 			or a
 			jr z,yEquCursorHook_DisplayBlock_NoCheckInvert
-			pop de
-		push bc
-			 push de
-				pop bc
+			set textInverse,(iy+textFlags)
 yEquCursorHook_DisplayBlock_NoCheckInvert:
 			pop de
 		pop af
@@ -592,6 +587,8 @@ yEquCursorHook_DisplayBlock_AddXLoop:
 	call YEquHook_SetPenRow	; destroys a and f		
 	call vputsapp							; hl was already set earlier in this routine
 yEquCursorHook_NotDispUnderCursor:
+	call ResetColors
+	res textInverse,(iy+textFlags)
 	cp a
 	ret
 

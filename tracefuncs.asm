@@ -234,6 +234,7 @@ DrawTraceCoords_SaveAreaLoop:
 	res fracDrawLFont,(iy+fontFlags)
 	bcall(_DispOP1A)
 Trace_Compute_EQ_Error:					; All done with displaying the trace X/Y/Z values
+	call ResetColors
 	ret
 
 EraseTraceCoords:
