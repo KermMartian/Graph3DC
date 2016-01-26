@@ -1072,6 +1072,16 @@ OP1SwapOP6_Safe_Loop:
 		pop hl
 	ret
 
+UpdateWindowExponent_FromOPHL:			; Must preserve HL!
+	inc hl
+	ld b,(hl)							; OP-style number at HL's exponent
+	dec hl
+	ld a,(max_window_exponent)
+	ld c,a
+	call MaxBC
+	ld (max_window_exponent),a
+	ret
+
 DisplayAppTitle:
 	ld hl,AppTitle
 DisplayAppTitleText:

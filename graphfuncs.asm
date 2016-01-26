@@ -190,6 +190,8 @@ Graph_Recolor:
 	ld (val_min_z),hl
 	ld hl,FP_MIN
 	ld (val_max_z),hl
+	ld a,-99+$80						; Exponent offset at $80
+	ld (max_window_exponent),a
 
 	ld hl,(max_x)						;step_x = (max_x-min_x)/(float)(dim_x-1);
 	ld de,(min_x)
@@ -290,11 +292,13 @@ Graph_Recolor_SetupProgress:
 	; - max X
 	ld a,SETTINGS_AVOFF_MAXXOS
 	call LTS_GetPtr
+	call UpdateWindowExponent_FromOPHL		; Must preserve HL!
 	ld de,maxX_OS
 	call OPXtoOPX
 	; - min X
 	ld a,SETTINGS_AVOFF_MINXOS
 	call LTS_GetPtr
+	call UpdateWindowExponent_FromOPHL		; Must preserve HL!
 	call OPXtoOP2
 	ld hl,maxX_OS
 	rst 20h
@@ -319,11 +323,13 @@ Graph_Recolor_SetupProgress:
 	; - max Y
 	ld a,SETTINGS_AVOFF_MAXYOS
 	call LTS_GetPtr
+	call UpdateWindowExponent_FromOPHL		; Must preserve HL!
 	ld de,maxY_OS
 	call OPXtoOPX
 	; - min Y
 	ld a,SETTINGS_AVOFF_MINYOS
 	call LTS_GetPtr
+	call UpdateWindowExponent_FromOPHL		; Must preserve HL!
 	call OPXtoOP2
 	ld hl,maxY_OS
 	call OPXtoOP1
@@ -497,6 +503,19 @@ Graph_Compute_EQ_Inner:
 			AppOnErr(Graph_Compute_EQ_Error)
 			bcall(_ParseInp)
 			AppOffErr
+			
+			; Check that it's not huuuuuge
+			ld a,(OP1+1)
+			ld b,a
+			ld a,(max_window_exponent)
+			add a,MAX_Z_EXPONENT_DIFFERENCE
+			cp b
+			jr nc,Graph_Compute_EQ_Inner_SafeOP1
+			ld hl,FP_MAGICCULL
+			jr Graph_Compute_EQ_Inner_SwapAndStore
+
+			; Now scale it.
+Graph_Compute_EQ_Inner_SafeOP1:
 			call OP1toOP4
 			ld hl,(scalefactor)				; Used to keep minx/maxx/miny/maxy sane
 			call FPtoOP1

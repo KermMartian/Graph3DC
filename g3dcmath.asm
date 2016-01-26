@@ -1,3 +1,33 @@
+#ifdef COMMENTED_OUT
+; Find the SIGNED maximum of B and C, and return in A
+MaxBC:
+	ld a,c
+	xor b
+	rla
+	push af
+		ld a,c
+		sub b
+		jr c,MaxBC_Return		;b is larger
+		ld a,c
+		ld c,b
+		ld b,a					;c is larger -> move to b
+MaxBC_Return:
+		pop af
+	ld a,b
+	ret nc
+	ld a,c
+	ret
+#endif
+
+; Find the UNSIGNED maximum of B and C, and return in A
+MaxBC:
+	ld a,c
+	sub b
+	ld a,c
+	ret nc
+	ld a,b
+	ret
+
 MaxHLDE:
 	ld a,h
 	xor d

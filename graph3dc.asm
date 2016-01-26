@@ -94,8 +94,8 @@
 ; [X] Fix run indicator appearing within graph area while drawing "full"-screen 3D graph
 ; [X] Fix LCD panic when drawing splitscreen graph - run indicator?
 ; [ ] Test interaction between Transform and G3DC in all menus
-; [ ] Make 2:Goto in syntax error go to proper equation somehow
-; [ ] Lots of beta-testing!
+; [X] Make 2:Goto in syntax error go to proper equation somehow
+; [X] Lots of beta-testing!
 
 .echo "-----------------------\n"
 
@@ -202,6 +202,7 @@ temp3	.equ plotSScreen
 .var byte, trace_x
 .var byte, trace_y
 .var byte, ateq
+.var byte, max_window_exponent
 
 ; The following used for lines and points
 .var word, xstart
@@ -267,6 +268,7 @@ temp3	.equ plotSScreen
 #define DEFAULT_XY_ZOOMF  $00C0
 #define DEFAULT_XY_MIN    $F800
 #define DEFAULT_XY_MAX    $0800
+#define MAX_Z_EXPONENT_DIFFERENCE 3
 
 #define AXES_BOUND_COORDS 23
 #define AXES_BOUND_PAIRS_AXES 9
