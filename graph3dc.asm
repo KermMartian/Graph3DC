@@ -1096,6 +1096,7 @@ HookChainer_Continue:
 #include "formathook.asm"
 #include "multimenu.asm"
 #include "funcfuncs.asm"
+#include "easteregg.asm"
 #include "bigicon.inc"
 #include "data.inc"
 

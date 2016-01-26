@@ -1213,6 +1213,42 @@ Graph_Draw_Redraw_NoBounds:
 	xor a
 	call RenderAxisLabels			; Render labels in front of graph
 	call TrashRAM_SwapOut
+
+	ld hl,BaseZVarName
+	rst 20h
+	ld a,tZ1
+	ld (OP1 + 2),a
+	rst 10h
+	ret c
+	
+	ex de,hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl
+	push hl
+		ld hl,4
+		call cphlde
+		pop hl
+	ret nz
+	
+	ld a,'K'
+	cp (hl)
+	ret nz
+	inc hl
+	ld a,'E'
+	cp (hl)
+	ret nz
+	inc hl
+	ld a,'R'
+	cp (hl)
+	ret nz
+	inc hl
+	ld a,'M'
+	cp (hl)
+	ret nz
+	
+	call EasterEgg
 	ret
 
 ;-----------------------------------
