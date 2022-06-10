@@ -1134,6 +1134,7 @@ Checksum16Bit_Loop:
 	ld a,0
 	adc a,d
 	ld d,a
+	inc hl
 	dec bc
 	ld a,b
 	or c
